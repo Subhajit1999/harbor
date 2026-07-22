@@ -77,6 +77,22 @@ dart run build_runner build --delete-conflicting-outputs
 Then follow `ios/SETUP.md` for the Share Extension / App Group / Photos /
 Files configuration, and `flutter run`.
 
+### Optional: yt-dlp resolver backend
+
+Copy `.env.example` to `.env` and fill in the URL/key for a deployed
+`backend/` instance (see `backend/README.md`) if you want link resolution
+to go through that instead of the built-in scrapers. Then always run/build
+with the flag that loads it:
+
+```bash
+flutter run --dart-define-from-file=.env
+```
+
+Not required — without `.env` (or without the flag), the app falls back
+to its built-in Instagram/Facebook/YouTube scrapers, same as before this
+existed. Either way, it's also overridable per-install in Settings ->
+Advanced without a rebuild.
+
 ## Folder structure
 
 ```

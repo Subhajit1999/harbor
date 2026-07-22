@@ -1,4 +1,8 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-yt-dlp==2025.1.15
+# Unpinned deliberately — Instagram/YouTube/Facebook change their page
+# internals often enough that yt-dlp needs frequent updates to keep
+# extracting; pinning a version here just means it silently goes stale.
+# Every Render rebuild installs whatever's current at build time instead.
+yt-dlp
 pydantic==2.10.5

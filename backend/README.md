@@ -38,6 +38,14 @@ curl -X POST http://localhost:8000/resolve \
 5. In Harbor → Settings → Advanced, paste that URL into **Resolver Server
    URL** and your chosen secret into **Resolver API Key**.
 
+### "Unable to extract video url" errors
+
+`requirements.txt` deliberately doesn't pin `yt-dlp` — the extractors it
+relies on for Instagram/YouTube/Facebook break periodically as those sites
+change, and yt-dlp's maintainers ship fixes fast, so pinning a version just
+means it silently goes stale. If you see this error, redeploy (Render's
+"Manual Deploy" button, or push any commit) to pick up the current release.
+
 ### Free tier caveat
 
 Render's free plan spins the service down after 15 minutes idle. The first

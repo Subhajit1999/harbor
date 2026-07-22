@@ -23,6 +23,11 @@ migrate_working_dir/
 # is commented out by default.
 #.vscode/
 
+# App-level env defaults (resolver backend URL/key) — see .env.example.
+# Not secret exactly (baked into the compiled app either way), but keeps
+# personal deploy values out of git the same way backend/.env does.
+/.env
+
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id

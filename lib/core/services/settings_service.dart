@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
+import '../constants/env.dart';
 
 /// Thin typed wrapper over SharedPreferences for the handful of user
 /// preferences Harbor has (Settings screen). Deliberately not using Isar for
@@ -47,13 +48,18 @@ class SettingsService {
   String get themeMode => _prefs.getString(AppConstants.prefThemeMode) ?? 'dark';
   set themeMode(String value) => _prefs.setString(AppConstants.prefThemeMode, value);
 
-  // Optional self-hosted yt-dlp resolver backend (see backend/) — empty by
-  // default, meaning the app relies solely on its built-in scrapers.
-  String get resolverServerUrl => _prefs.getString(AppConstants.prefResolverServerUrl) ?? '';
+  // Optional self-hosted yt-dlp resolver backend (see backend/). Falls back
+  // to the compile-time default baked in via `--dart-define-from-file=.env`
+  // (see lib/core/constants/env.dart) when the user hasn't set an override
+  // in Settings -> Advanced — both empty means the app relies solely on its
+  // built-in scrapers, same as before this existed.
+  String get resolverServerUrl =>
+      _prefs.getString(AppConstants.prefResolverServerUrl) ?? Env.resolverServerUrl;
   set resolverServerUrl(String value) =>
       _prefs.setString(AppConstants.prefResolverServerUrl, value);
 
-  String get resolverApiKey => _prefs.getString(AppConstants.prefResolverApiKey) ?? '';
+  String get resolverApiKey =>
+      _prefs.getString(AppConstants.prefResolverApiKey) ?? Env.resolverApiKey;
   set resolverApiKey(String value) => _prefs.setString(AppConstants.prefResolverApiKey, value);
 
   static const _recentLinksKey = 'importScreen.recentLinks';
