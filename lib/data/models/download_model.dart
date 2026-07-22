@@ -16,6 +16,7 @@ class DownloadModel {
   late String sourceUrl;
   late String streamUrl;
   String? audioStreamUrl;
+  bool needsAudioExtraction = false;
 
   @enumerated
   late MediaType type;
@@ -49,6 +50,7 @@ class DownloadModel {
         sourceUrl: sourceUrl,
         streamUrl: streamUrl,
         audioStreamUrl: audioStreamUrl,
+        needsAudioExtraction: needsAudioExtraction,
         type: type,
         format: format,
         resolution: resolution,
@@ -73,6 +75,7 @@ class DownloadModel {
     ..sourceUrl = e.sourceUrl
     ..streamUrl = e.streamUrl
     ..audioStreamUrl = e.audioStreamUrl
+    ..needsAudioExtraction = e.needsAudioExtraction
     ..type = e.type
     ..format = e.format
     ..resolution = e.resolution

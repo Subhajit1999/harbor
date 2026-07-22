@@ -9,6 +9,7 @@ class DownloadEntity extends Equatable {
   final String sourceUrl;
   final String streamUrl;
   final String? audioStreamUrl; // set when video+audio need muxing (adaptive)
+  final bool needsAudioExtraction; // set when streamUrl is a video that needs its audio track pulled out
   final MediaType type;
   final String format;
   final String? resolution;
@@ -32,6 +33,7 @@ class DownloadEntity extends Equatable {
     required this.sourceUrl,
     required this.streamUrl,
     this.audioStreamUrl,
+    this.needsAudioExtraction = false,
     required this.type,
     required this.format,
     this.resolution,
@@ -69,6 +71,7 @@ class DownloadEntity extends Equatable {
       sourceUrl: sourceUrl,
       streamUrl: streamUrl,
       audioStreamUrl: audioStreamUrl,
+      needsAudioExtraction: needsAudioExtraction,
       type: type,
       format: format,
       resolution: resolution,
@@ -94,6 +97,7 @@ class DownloadEntity extends Equatable {
         sourceUrl,
         streamUrl,
         audioStreamUrl,
+        needsAudioExtraction,
         type,
         format,
         resolution,

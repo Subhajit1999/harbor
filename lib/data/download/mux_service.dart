@@ -32,4 +32,23 @@ class MuxService {
     }
     return result;
   }
+
+  /// Strips the audio track out of [sourcePath] (a full audio+video file)
+  /// into a standalone audio file at [outputPath]. Used for sources — like
+  /// Instagram and Facebook — that don't expose a separate audio-only CDN
+  /// URL, so "Audio only" downloads have to be extracted client-side after
+  /// downloading the video. Returns the output path on success.
+  Future<String> extractAudio({
+    required String sourcePath,
+    required String outputPath,
+  }) async {
+    final result = await _channel.invokeMethod<String>('extractAudio', {
+      'sourcePath': sourcePath,
+      'outputPath': outputPath,
+    });
+    if (result == null) {
+      throw Exception('Audio extraction failed: no output path returned from native side.');
+    }
+    return result;
+  }
 }

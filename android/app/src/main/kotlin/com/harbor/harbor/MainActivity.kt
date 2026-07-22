@@ -18,6 +18,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
   private val channelName = "harbor/share"
   private var methodChannel: MethodChannel? = null
+  private var muxHandler: MuxHandler? = null
 
   // Cold start: app wasn't running, share intent launched it. Dart isn't
   // listening yet, so we hold onto the value until it asks via
@@ -37,6 +38,8 @@ class MainActivity : FlutterActivity() {
         else -> result.notImplemented()
       }
     }
+
+    muxHandler = MuxHandler(flutterEngine.dartExecutor.binaryMessenger)
 
     handleShareIntent(intent, isColdStart = true)
   }

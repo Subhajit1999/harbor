@@ -12,23 +12,48 @@ class MuxHandler {
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "harbor/mux", binaryMessenger: messenger)
     channel.setMethodCallHandler { call, result in
-      guard call.method == "muxVideoAudio",
-            let args = call.arguments as? [String: String],
-            let videoPath = args["videoPath"],
-            let audioPath = args["audioPath"],
-            let outputPath = args["outputPath"]
-      else {
-        result(FlutterError(code: "bad_args", message: "Missing videoPath/audioPath/outputPath", details: nil))
-        return
-      }
-
-      Task {
-        do {
-          try await MuxHandler.mux(videoPath: videoPath, audioPath: audioPath, outputPath: outputPath)
-          result(outputPath)
-        } catch {
-          result(FlutterError(code: "mux_failed", message: error.localizedDescription, details: nil))
+      switch call.method {
+      case "muxVideoAudio":
+        guard
+          let args = call.arguments as? [String: String],
+          let videoPath = args["videoPath"],
+          let audioPath = args["audioPath"],
+          let outputPath = args["outputPath"]
+        else {
+          result(FlutterError(code: "bad_args", message: "Missing videoPath/audioPath/outputPath", details: nil))
+          return
         }
+
+        Task {
+          do {
+            try await MuxHandler.mux(videoPath: videoPath, audioPath: audioPath, outputPath: outputPath)
+            result(outputPath)
+          } catch {
+            result(FlutterError(code: "mux_failed", message: error.localizedDescription, details: nil))
+          }
+        }
+
+      case "extractAudio":
+        guard
+          let args = call.arguments as? [String: String],
+          let sourcePath = args["sourcePath"],
+          let outputPath = args["outputPath"]
+        else {
+          result(FlutterError(code: "bad_args", message: "Missing sourcePath/outputPath", details: nil))
+          return
+        }
+
+        Task {
+          do {
+            try await MuxHandler.extractAudio(sourcePath: sourcePath, outputPath: outputPath)
+            result(outputPath)
+          } catch {
+            result(FlutterError(code: "extract_failed", message: error.localizedDescription, details: nil))
+          }
+        }
+
+      default:
+        result(FlutterMethodNotImplemented)
       }
     }
   }
@@ -68,6 +93,40 @@ class MuxHandler {
     }
     export.outputURL = outputURL
     export.outputFileType = .mp4
+
+    await export.export()
+
+    if export.status != .completed {
+      throw export.error ?? NSError(domain: "MuxHandler", code: 3, userInfo: [
+        NSLocalizedDescriptionKey: "Export finished with status \(export.status.rawValue)."
+      ])
+    }
+  }
+
+  /// Strips just the audio track out of `sourcePath` (a full audio+video
+  /// file — Instagram/Facebook don't expose a separate audio-only URL) into
+  /// a standalone .m4a at `outputPath`. Unlike `mux`, this doesn't need a
+  /// composition — there's only one track to keep, so the export session
+  /// can read directly off the source asset with the dedicated M4A preset.
+  private static func extractAudio(sourcePath: String, outputPath: String) async throws {
+    let outputURL = URL(fileURLWithPath: outputPath)
+    try? FileManager.default.removeItem(at: outputURL) // AVAssetExportSession refuses to overwrite
+
+    let asset = AVURLAsset(url: URL(fileURLWithPath: sourcePath))
+
+    guard try await asset.loadTracks(withMediaType: .audio).first != nil else {
+      throw NSError(domain: "MuxHandler", code: 4, userInfo: [
+        NSLocalizedDescriptionKey: "Source has no audio track."
+      ])
+    }
+
+    guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+      throw NSError(domain: "MuxHandler", code: 2, userInfo: [
+        NSLocalizedDescriptionKey: "Could not create export session."
+      ])
+    }
+    export.outputURL = outputURL
+    export.outputFileType = .m4a
 
     await export.export()
 

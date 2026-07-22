@@ -119,7 +119,11 @@ class DownloadManager {
         cancelToken: cancelToken,
         // If audio needs muxing, the video-only track is only half the
         // total — leave headroom for the audio download + mux step below.
-        progressWeight: entity.audioStreamUrl != null ? 0.45 : 1.0,
+        // If audio needs extracting, leave headroom for that local step too
+        // (no second network fetch, so less is needed than the mux case).
+        progressWeight: entity.audioStreamUrl != null
+            ? 0.45
+            : (entity.needsAudioExtraction ? 0.7 : 1.0),
       );
 
       var finalPath = videoPath;
@@ -144,6 +148,17 @@ class DownloadManager {
         // Clean up intermediates once mux succeeds.
         await File(videoPath).delete().catchError((_) => File(videoPath));
         await File(audioPath).delete().catchError((_) => File(audioPath));
+      } else if (entity.needsAudioExtraction) {
+        // Sources like Instagram/Facebook don't expose a separate
+        // audio-only URL — `videoPath` is actually a full video file that
+        // needs its audio track pulled out natively before it's a real
+        // standalone audio file (see MuxService.extractAudio).
+        final extractedPath = p.join(dir.path, '${entity.id}_final.m4a');
+        finalPath = await _muxService.extractAudio(
+          sourcePath: videoPath,
+          outputPath: extractedPath,
+        );
+        await File(videoPath).delete().catchError((_) => File(videoPath));
       }
 
       entity = await _repository.getById(id);

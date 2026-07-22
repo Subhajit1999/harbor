@@ -67,60 +67,65 @@ const DownloadModelSchema = CollectionSchema(
       name: r'mediaTitle',
       type: IsarType.string,
     ),
-    r'resolution': PropertySchema(
+    r'needsAudioExtraction': PropertySchema(
       id: 10,
+      name: r'needsAudioExtraction',
+      type: IsarType.bool,
+    ),
+    r'resolution': PropertySchema(
+      id: 11,
       name: r'resolution',
       type: IsarType.string,
     ),
     r'retryCount': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'retryCount',
       type: IsarType.long,
     ),
     r'saveDestination': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'saveDestination',
       type: IsarType.byte,
       enumMap: _DownloadModelsaveDestinationEnumValueMap,
     ),
     r'sourceUrl': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'sourceUrl',
       type: IsarType.string,
     ),
     r'speedBytesPerSec': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'speedBytesPerSec',
       type: IsarType.double,
     ),
     r'startedAt': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'startedAt',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'status',
       type: IsarType.byte,
       enumMap: _DownloadModelstatusEnumValueMap,
     ),
     r'streamUrl': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'streamUrl',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'totalBytes': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'totalBytes',
       type: IsarType.long,
     ),
     r'type': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'type',
       type: IsarType.byte,
       enumMap: _DownloadModeltypeEnumValueMap,
@@ -221,17 +226,18 @@ void _downloadModelSerialize(
   writer.writeString(offsets[7], object.id);
   writer.writeBool(offsets[8], object.indexed);
   writer.writeString(offsets[9], object.mediaTitle);
-  writer.writeString(offsets[10], object.resolution);
-  writer.writeLong(offsets[11], object.retryCount);
-  writer.writeByte(offsets[12], object.saveDestination.index);
-  writer.writeString(offsets[13], object.sourceUrl);
-  writer.writeDouble(offsets[14], object.speedBytesPerSec);
-  writer.writeDateTime(offsets[15], object.startedAt);
-  writer.writeByte(offsets[16], object.status.index);
-  writer.writeString(offsets[17], object.streamUrl);
-  writer.writeString(offsets[18], object.thumbnailUrl);
-  writer.writeLong(offsets[19], object.totalBytes);
-  writer.writeByte(offsets[20], object.type.index);
+  writer.writeBool(offsets[10], object.needsAudioExtraction);
+  writer.writeString(offsets[11], object.resolution);
+  writer.writeLong(offsets[12], object.retryCount);
+  writer.writeByte(offsets[13], object.saveDestination.index);
+  writer.writeString(offsets[14], object.sourceUrl);
+  writer.writeDouble(offsets[15], object.speedBytesPerSec);
+  writer.writeDateTime(offsets[16], object.startedAt);
+  writer.writeByte(offsets[17], object.status.index);
+  writer.writeString(offsets[18], object.streamUrl);
+  writer.writeString(offsets[19], object.thumbnailUrl);
+  writer.writeLong(offsets[20], object.totalBytes);
+  writer.writeByte(offsets[21], object.type.index);
 }
 
 DownloadModel _downloadModelDeserialize(
@@ -252,22 +258,23 @@ DownloadModel _downloadModelDeserialize(
   object.indexed = reader.readBool(offsets[8]);
   object.isarId = id;
   object.mediaTitle = reader.readString(offsets[9]);
-  object.resolution = reader.readStringOrNull(offsets[10]);
-  object.retryCount = reader.readLong(offsets[11]);
+  object.needsAudioExtraction = reader.readBool(offsets[10]);
+  object.resolution = reader.readStringOrNull(offsets[11]);
+  object.retryCount = reader.readLong(offsets[12]);
   object.saveDestination = _DownloadModelsaveDestinationValueEnumMap[
-          reader.readByteOrNull(offsets[12])] ??
+          reader.readByteOrNull(offsets[13])] ??
       SaveDestination.photos;
-  object.sourceUrl = reader.readString(offsets[13]);
-  object.speedBytesPerSec = reader.readDouble(offsets[14]);
-  object.startedAt = reader.readDateTime(offsets[15]);
+  object.sourceUrl = reader.readString(offsets[14]);
+  object.speedBytesPerSec = reader.readDouble(offsets[15]);
+  object.startedAt = reader.readDateTime(offsets[16]);
   object.status =
-      _DownloadModelstatusValueEnumMap[reader.readByteOrNull(offsets[16])] ??
+      _DownloadModelstatusValueEnumMap[reader.readByteOrNull(offsets[17])] ??
           DownloadStatus.queued;
-  object.streamUrl = reader.readString(offsets[17]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[18]);
-  object.totalBytes = reader.readLong(offsets[19]);
+  object.streamUrl = reader.readString(offsets[18]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
+  object.totalBytes = reader.readLong(offsets[20]);
   object.type =
-      _DownloadModeltypeValueEnumMap[reader.readByteOrNull(offsets[20])] ??
+      _DownloadModeltypeValueEnumMap[reader.readByteOrNull(offsets[21])] ??
           MediaType.video;
   return object;
 }
@@ -300,29 +307,31 @@ P _downloadModelDeserializeProp<P>(
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 11:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 12:
+      return (reader.readLong(offset)) as P;
+    case 13:
       return (_DownloadModelsaveDestinationValueEnumMap[
               reader.readByteOrNull(offset)] ??
           SaveDestination.photos) as P;
-    case 13:
-      return (reader.readString(offset)) as P;
     case 14:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 15:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 16:
+      return (reader.readDateTime(offset)) as P;
+    case 17:
       return (_DownloadModelstatusValueEnumMap[reader.readByteOrNull(offset)] ??
           DownloadStatus.queued) as P;
-    case 17:
-      return (reader.readString(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 19:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 20:
+      return (reader.readLong(offset)) as P;
+    case 21:
       return (_DownloadModeltypeValueEnumMap[reader.readByteOrNull(offset)] ??
           MediaType.video) as P;
     default:
@@ -1700,6 +1709,16 @@ extension DownloadModelQueryFilter
   }
 
   QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      needsAudioExtractionEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'needsAudioExtraction',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
       resolutionIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2819,6 +2838,20 @@ extension DownloadModelQuerySortBy
     });
   }
 
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      sortByNeedsAudioExtraction() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsAudioExtraction', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      sortByNeedsAudioExtractionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsAudioExtraction', Sort.desc);
+    });
+  }
+
   QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy> sortByResolution() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolution', Sort.asc);
@@ -3108,6 +3141,20 @@ extension DownloadModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      thenByNeedsAudioExtraction() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsAudioExtraction', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      thenByNeedsAudioExtractionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsAudioExtraction', Sort.desc);
+    });
+  }
+
   QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy> thenByResolution() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'resolution', Sort.asc);
@@ -3322,6 +3369,13 @@ extension DownloadModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<DownloadModel, DownloadModel, QDistinct>
+      distinctByNeedsAudioExtraction() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'needsAudioExtraction');
+    });
+  }
+
   QueryBuilder<DownloadModel, DownloadModel, QDistinct> distinctByResolution(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3463,6 +3517,13 @@ extension DownloadModelQueryProperty
   QueryBuilder<DownloadModel, String, QQueryOperations> mediaTitleProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'mediaTitle');
+    });
+  }
+
+  QueryBuilder<DownloadModel, bool, QQueryOperations>
+      needsAudioExtractionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'needsAudioExtraction');
     });
   }
 

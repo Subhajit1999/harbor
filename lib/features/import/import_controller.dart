@@ -103,6 +103,7 @@ class ImportController extends GetxController {
       sourceUrl: meta.sourceUrl,
       streamUrl: variant.streamUrl,
       audioStreamUrl: variant.audioStreamUrl,
+      needsAudioExtraction: variant.needsAudioExtraction,
       type: variant.type,
       format: variant.container,
       resolution: variant.type == MediaType.video ? variant.label : null,

@@ -92,7 +92,11 @@ class FacebookResolver implements LinkResolver {
         type: MediaType.audio,
         label: 'Audio only',
         container: 'm4a',
+        // Facebook doesn't expose a separate audio-only URL either — same
+        // deal as Instagram, DownloadManager extracts the audio track
+        // natively after downloading this video file.
         streamUrl: bestUrl,
+        needsAudioExtraction: true,
       ));
 
       return MediaMetadata(

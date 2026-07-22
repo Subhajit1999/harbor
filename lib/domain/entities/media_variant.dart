@@ -16,6 +16,15 @@ class MediaVariant extends Equatable {
   final String? audioStreamUrl; // populated when video-only + separate audio
   final bool requiresMuxing;
 
+  // Set when `streamUrl` actually points at a full audio+video file (some
+  // sources — Instagram, Facebook — don't expose a separate audio-only CDN
+  // URL the way YouTube does) and this variant's `type` is
+  // [MediaType.audio] anyway: the downloaded file needs its audio track
+  // stripped out natively before it's a real standalone audio file.
+  // Mutually exclusive with [requiresMuxing]/[audioStreamUrl] — this is the
+  // "one input, keep only audio" case, not the "two inputs, combine" case.
+  final bool needsAudioExtraction;
+
   const MediaVariant({
     required this.id,
     required this.type,
@@ -27,6 +36,7 @@ class MediaVariant extends Equatable {
     required this.streamUrl,
     this.audioStreamUrl,
     this.requiresMuxing = false,
+    this.needsAudioExtraction = false,
   });
 
   @override
@@ -41,6 +51,7 @@ class MediaVariant extends Equatable {
         streamUrl,
         audioStreamUrl,
         requiresMuxing,
+        needsAudioExtraction,
       ];
 }
 
