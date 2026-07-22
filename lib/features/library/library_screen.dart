@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import '../../domain/entities/media_entity.dart';
 import 'library_controller.dart';
 import 'widgets/media_grid_tile.dart';
@@ -15,27 +16,25 @@ class LibraryScreen extends GetView<LibraryController> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Library'),
-          actions: [
-            IconButton(
-              icon: const Icon(CupertinoIcons.search),
-              onPressed: () => Get.toNamed(AppRoutes.search),
-            ),
-          ],
-          bottom: const TabBar(
-            isScrollable: true,
-            indicatorColor: AppColors.accent,
-            labelColor: AppColors.accent,
-            unselectedLabelColor: AppColors.textSecondaryDark,
-            tabs: [
-              Tab(text: 'Videos'),
-              Tab(text: 'Audio'),
-              Tab(text: 'Favorites'),
-              Tab(text: 'Folders'),
-            ],
+      child: HarborScaffold(
+        title: 'Library',
+        actions: [
+          HeaderIconButton(
+            icon: CupertinoIcons.search,
+            onTap: () => Get.toNamed(AppRoutes.search),
           ),
+        ],
+        bottom: const TabBar(
+          isScrollable: true,
+          indicatorColor: AppColors.accent,
+          labelColor: AppColors.accent,
+          unselectedLabelColor: AppColors.textSecondaryDark,
+          tabs: [
+            Tab(text: 'Videos'),
+            Tab(text: 'Audio'),
+            Tab(text: 'Favorites'),
+            Tab(text: 'Folders'),
+          ],
         ),
         body: Obx(() => TabBarView(
               children: [

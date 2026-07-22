@@ -6,6 +6,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/gradient_widgets.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import 'player_controller.dart';
 
 class PlayerScreen extends GetView<PlayerController> {
@@ -13,9 +14,9 @@ class PlayerScreen extends GetView<PlayerController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.charcoalBlack,
-      appBar: AppBar(title: Text(controller.media.title)),
+    return HarborScaffold(
+      title: controller.media.title,
+      glow: false,
       body: Obx(() {
         if (!controller.isReady.value) {
           return const Center(child: CupertinoActivityIndicator());

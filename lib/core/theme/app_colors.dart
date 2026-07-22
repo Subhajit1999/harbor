@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Monochrome design language: charcoal (not pure OLED black) as the dark
-/// base, clean white as the light base. No hue anywhere except the three
-/// semantic status colors (success/warning/error) — hierarchy comes from
-/// tone, opacity, and glass layering rather than color.
+/// Dark charcoal canvas with a neon blue accent — the accent carries every
+/// button, active state, selection, and "hero" surface in the app, so it
+/// stays singular and deliberate rather than scattered across many hues.
 class AppColors {
   AppColors._();
 
   // Base surfaces — dark
-  static const Color charcoalBlack = Color(0xFF17171A); // scaffold background
-  static const Color surfaceDark = Color(0xFF1E1E22); // subtle zone fill
-  static const Color surfaceElevatedDark = Color(0xFF232327); // cards
+  static const Color charcoalBlack = Color(0xFF121216); // scaffold background
+  static const Color surfaceDark = Color(0xFF1C1C21); // subtle zone fill
+  static const Color surfaceElevatedDark = Color(0xFF212127); // cards
   static const Color surfaceGlassDark = Color(0x26FFFFFF); // white @ ~15% — visible, not heavy
 
   // Base surfaces — light
@@ -18,36 +17,47 @@ class AppColors {
   static const Color surfaceElevatedLight = Color(0xFFF9F9FA); // cards, one tone off white
   static const Color surfaceGlassLight = Color(0x1F000000); // black @ ~12%
 
-  // Accent — monochrome by design: white reads as the accent against the
-  // charcoal dark theme, charcoal reads as the accent against the white
-  // light theme. Used for primary buttons, active states, selection,
-  // favorites — the same role electric blue used to play, just without
-  // the hue.
-  static const Color accentDark = Color(0xFFFFFFFF);
-  static const Color accentLight = Color(0xFF1C1C1E);
+  // Accent — neon blue. Used for primary buttons, active states, selection,
+  // favorites, links, and icon highlights.
+  static const Color accentDark = Color(0xFF2E8CFF); // neon blue
+  static const Color accentBrightDark = Color(0xFF00E1FF); // cyan-blue, gradient hot stop
+  static const Color accentLight = Color(0xFF0A6CFF);
+  static const Color accentBrightLight = Color(0xFF00A8E8);
 
   // `accent`/`accentMuted` resolve to the dark-theme values since the app
   // currently runs dark-first (see AppTheme); once light-theme switching is
   // wired up in Settings, screens should move to `Theme.of(context)` reads
   // instead of these static getters.
   static const Color accent = accentDark;
-  static const Color accentMuted = Color(0x80FFFFFF);
+  static const Color accentMuted = Color(0x802E8CFF);
 
-  // A very subtle two-stop sheen (not a hue shift) used on primary buttons
-  // and a couple of "hero" surfaces so they don't read as flat — this is
-  // the monochrome replacement for what used to be a blue/violet/pink
-  // gradient. Kept understated on purpose.
+  // Text that sits *on top of* a filled accent surface (primary button
+  // fill, selected chip) — white reads cleanly on the neon blue at every
+  // stop in the gradient below, unlike the old monochrome accent where the
+  // on-accent color had to flip to charcoal.
+  static const Color onAccent = Color(0xFFFFFFFF);
+
+  // Two-stop neon sheen — deep neon blue to bright cyan-blue — used on
+  // primary buttons, active progress, and the hero background glow. This
+  // is the "cool gradient" the rest of the app's blurred background blobs
+  // are built from.
   static const LinearGradient accentSheenDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFFFFF), Color(0xFFD8D8DE)],
+    colors: [accentBrightDark, accentDark],
   );
 
   static const LinearGradient accentSheenLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF2A2A2E), Color(0xFF141416)],
+    colors: [accentBrightLight, accentLight],
   );
+
+  // Soft glow used behind primary buttons / accented cards so the neon
+  // accent reads as lit rather than just colored-in.
+  static List<BoxShadow> accentGlow({double opacity = 0.35, double blur = 24}) => [
+        BoxShadow(color: accentDark.withOpacity(opacity), blurRadius: blur, spreadRadius: 0),
+      ];
 
   // Semantic
   static const Color success = Color(0xFF32D74B);

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../core/widgets/glass_card.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import 'import_controller.dart';
 
 class ImportScreen extends GetView<ImportController> {
@@ -11,8 +12,8 @@ class ImportScreen extends GetView<ImportController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Import')),
+    return HarborScaffold(
+      title: 'Import',
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

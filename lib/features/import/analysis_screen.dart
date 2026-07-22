@@ -7,6 +7,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../core/widgets/glass_card.dart';
 import '../../core/widgets/gradient_widgets.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import '../../domain/entities/media_variant.dart';
 import 'import_controller.dart';
 import 'widgets/save_destination_sheet.dart';
@@ -16,8 +17,8 @@ class AnalysisScreen extends GetView<ImportController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Analysis')),
+    return HarborScaffold(
+      title: 'Analysis',
       body: Obx(() {
         final meta = controller.metadata.value;
         if (meta == null) {

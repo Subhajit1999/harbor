@@ -40,6 +40,7 @@ class PrimaryButton extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           gradient: AppColors.accentSheenDark,
+          boxShadow: disabled ? null : AppColors.accentGlow(),
         ),
         child: Opacity(
           opacity: disabled && !loading ? 0.4 : 1,
@@ -48,13 +49,13 @@ class PrimaryButton extends StatelessWidget {
                 ? const SizedBox(
                     width: 22,
                     height: 22,
-                    child: CupertinoActivityIndicator(color: AppColors.charcoalBlack),
+                    child: CupertinoActivityIndicator(color: AppColors.onAccent),
                   )
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 20, color: AppColors.charcoalBlack),
+                        Icon(icon, size: 20, color: AppColors.onAccent),
                         const SizedBox(width: 8),
                       ],
                       Text(
@@ -62,7 +63,7 @@ class PrimaryButton extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.charcoalBlack,
+                          color: AppColors.onAccent,
                         ),
                       ),
                     ],

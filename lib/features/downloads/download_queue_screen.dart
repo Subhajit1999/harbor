@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/common_widgets.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import 'download_queue_controller.dart';
 import 'widgets/download_card.dart';
 
@@ -11,8 +12,8 @@ class DownloadQueueScreen extends GetView<DownloadQueueController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Downloads')),
+    return HarborScaffold(
+      title: 'Downloads',
       body: Obx(() {
         if (controller.downloads.isEmpty) {
           return const EmptyState(

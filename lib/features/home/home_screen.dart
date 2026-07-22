@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -8,6 +7,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../core/widgets/glass_card.dart';
 import '../../core/widgets/gradient_widgets.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import '../library/widgets/media_grid_tile.dart';
 import 'home_controller.dart';
 
@@ -16,39 +16,25 @@ class HomeScreen extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Harbor'),
-        actions: [
-          IconButton(
-            icon: const Icon(CupertinoIcons.search),
-            onPressed: () => Get.toNamed(AppRoutes.search),
-          ),
-          IconButton(
-            icon: const Icon(CupertinoIcons.settings),
-            onPressed: () => Get.toNamed(AppRoutes.settings),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Purely decorative — a soft, blurred brand-gradient blob tucked
-          // behind the top of the scroll view so the OLED-black canvas
-          // doesn't feel flat, without competing with foreground content.
-          Positioned(
-            top: -80,
-            right: -60,
-            child: ImageFiltered(
-              imageFilter: ui.ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-              child: const GradientBlob(size: 220, opacity: 0.22),
-            ),
-          ),
-          RefreshIndicator(
-            onRefresh: () async => controller.checkClipboard(),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-              children: [
-                _PasteLinkCard(),
+    return HarborScaffold(
+      title: 'Harbor',
+      actions: [
+        HeaderIconButton(
+          icon: CupertinoIcons.search,
+          onTap: () => Get.toNamed(AppRoutes.search),
+        ),
+        const SizedBox(width: 8),
+        HeaderIconButton(
+          icon: CupertinoIcons.settings,
+          onTap: () => Get.toNamed(AppRoutes.settings),
+        ),
+      ],
+      body: RefreshIndicator(
+        onRefresh: () async => controller.checkClipboard(),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            _PasteLinkCard(),
             const SizedBox(height: 24),
             _QuickActionsRow(),
             const SizedBox(height: 24),
@@ -121,10 +107,8 @@ class HomeScreen extends GetView<HomeController> {
             }),
             const SizedBox(height: 24),
             _StorageUsageCard(),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -136,11 +120,10 @@ class _PasteLinkCard extends GetView<HomeController> {
     return Obx(() {
       final link = controller.clipboardLink.value;
       return GlassCard(
-        accented: true,
         onTap: () => Get.toNamed(AppRoutes.import, arguments: link),
         child: Row(
           children: [
-            const GradientTint(child: Icon(CupertinoIcons.link)),
+            const Icon(CupertinoIcons.link, color: AppColors.accent),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
