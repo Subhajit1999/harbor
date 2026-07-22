@@ -47,6 +47,15 @@ class SettingsService {
   String get themeMode => _prefs.getString(AppConstants.prefThemeMode) ?? 'dark';
   set themeMode(String value) => _prefs.setString(AppConstants.prefThemeMode, value);
 
+  // Optional self-hosted yt-dlp resolver backend (see backend/) — empty by
+  // default, meaning the app relies solely on its built-in scrapers.
+  String get resolverServerUrl => _prefs.getString(AppConstants.prefResolverServerUrl) ?? '';
+  set resolverServerUrl(String value) =>
+      _prefs.setString(AppConstants.prefResolverServerUrl, value);
+
+  String get resolverApiKey => _prefs.getString(AppConstants.prefResolverApiKey) ?? '';
+  set resolverApiKey(String value) => _prefs.setString(AppConstants.prefResolverApiKey, value);
+
   static const _recentLinksKey = 'importScreen.recentLinks';
   static const _maxRecentLinks = 10;
 

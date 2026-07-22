@@ -28,6 +28,8 @@ class AppConstants {
   static const String prefThemeMode = 'settings.themeMode';
   static const String prefDefaultPlaybackSpeed = 'settings.defaultPlaybackSpeed';
   static const String prefRememberPosition = 'settings.rememberPosition';
+  static const String prefResolverServerUrl = 'settings.resolverServerUrl';
+  static const String prefResolverApiKey = 'settings.resolverApiKey';
 }
 
 enum SaveDestination { photos, files, askEveryTime }

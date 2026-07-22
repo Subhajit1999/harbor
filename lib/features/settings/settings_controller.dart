@@ -16,6 +16,8 @@ class SettingsController extends GetxController {
   final saveDestination = SaveDestination.askEveryTime.obs;
   final defaultPlaybackSpeed = 1.0.obs;
   final rememberPosition = true.obs;
+  final resolverServerUrl = ''.obs;
+  final resolverApiKey = ''.obs;
 
   final libraryStorageBytes = 0.obs;
   final cacheBytes = 0.obs;
@@ -29,6 +31,8 @@ class SettingsController extends GetxController {
     saveDestination.value = _settingsService.saveDestination;
     defaultPlaybackSpeed.value = _settingsService.defaultPlaybackSpeed;
     rememberPosition.value = _settingsService.rememberPosition;
+    resolverServerUrl.value = _settingsService.resolverServerUrl;
+    resolverApiKey.value = _settingsService.resolverApiKey;
     _refreshStorage();
   }
 
@@ -85,5 +89,15 @@ class SettingsController extends GetxController {
   void setRememberPosition(bool value) {
     rememberPosition.value = value;
     _settingsService.rememberPosition = value;
+  }
+
+  void setResolverServerUrl(String value) {
+    resolverServerUrl.value = value;
+    _settingsService.resolverServerUrl = value;
+  }
+
+  void setResolverApiKey(String value) {
+    resolverApiKey.value = value;
+    _settingsService.resolverApiKey = value;
   }
 }

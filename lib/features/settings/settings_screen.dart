@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/harbor_scaffold.dart';
 import 'settings_controller.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
@@ -11,8 +12,8 @@ class SettingsScreen extends GetView<SettingsController> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+    return HarborScaffold(
+      title: 'Settings',
       body: ListView(
         children: [
           _SectionLabel('Downloads'),
@@ -94,6 +95,40 @@ class SettingsScreen extends GetView<SettingsController> {
                 title: const Text('Remember Position'),
               )),
           const Divider(height: 32),
+          _SectionLabel('Advanced'),
+          Obx(() => ListTile(
+                title: const Text('Resolver Server URL'),
+                subtitle: Text(
+                  controller.resolverServerUrl.value.isEmpty
+                      ? 'Not set — using built-in resolvers'
+                      : controller.resolverServerUrl.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () => _editTextDialog(
+                  context,
+                  title: 'Resolver Server URL',
+                  initialValue: controller.resolverServerUrl.value,
+                  hintText: 'https://harbor-resolver-xxxx.onrender.com',
+                  onSave: controller.setResolverServerUrl,
+                ),
+              )),
+          Obx(() => ListTile(
+                title: const Text('Resolver API Key'),
+                subtitle: Text(
+                  controller.resolverApiKey.value.isEmpty
+                      ? 'Not set'
+                      : '•' * controller.resolverApiKey.value.length.clamp(0, 24),
+                ),
+                onTap: () => _editTextDialog(
+                  context,
+                  title: 'Resolver API Key',
+                  initialValue: controller.resolverApiKey.value,
+                  hintText: 'Matches API_KEY on the server',
+                  onSave: controller.setResolverApiKey,
+                ),
+              )),
+          const Divider(height: 32),
           _SectionLabel('Privacy'),
           const ListTile(
             title: Text('No Analytics'),
@@ -116,6 +151,44 @@ class SettingsScreen extends GetView<SettingsController> {
       ),
     );
   }
+}
+
+void _editTextDialog(
+  BuildContext context, {
+  required String title,
+  required String initialValue,
+  required String hintText,
+  required ValueChanged<String> onSave,
+}) {
+  final textController = TextEditingController(text: initialValue);
+  showCupertinoDialog(
+    context: context,
+    builder: (_) => CupertinoAlertDialog(
+      title: Text(title),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: CupertinoTextField(
+          controller: textController,
+          autofocus: true,
+          placeholder: hintText,
+        ),
+      ),
+      actions: [
+        CupertinoDialogAction(
+          child: const Text('Cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        CupertinoDialogAction(
+          isDefaultAction: true,
+          child: const Text('Save'),
+          onPressed: () {
+            onSave(textController.text.trim());
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    ),
+  );
 }
 
 class _SectionLabel extends StatelessWidget {

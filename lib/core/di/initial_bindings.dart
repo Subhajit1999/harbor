@@ -37,7 +37,10 @@ class InitialBindings extends Bindings {
     );
 
     // Resolvers
-    Get.put<ResolverRegistry>(ResolverRegistry(), permanent: true);
+    Get.put<ResolverRegistry>(
+      ResolverRegistry(settingsService: Get.find<SettingsService>()),
+      permanent: true,
+    );
 
     // Download manager (depends on repository + settings for concurrency)
     Get.put<DownloadManager>(

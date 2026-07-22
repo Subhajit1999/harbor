@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: harbor-resolver
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: API_KEY
+        sync: false
