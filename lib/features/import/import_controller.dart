@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -78,8 +80,15 @@ class ImportController extends GetxController {
       Get.toNamed(AppRoutes.analysis);
     } on ResolverException catch (e) {
       analysisError.value = e.message;
+    } on SocketException {
+      analysisError.value = 'No internet connection. Check your network and try again.';
+    } on TimeoutException {
+      analysisError.value = 'This is taking too long — the source may be slow to respond. Try again.';
     } catch (e) {
-      analysisError.value = 'Something went wrong analyzing this link: $e';
+      // Not a ResolverException/network error — a resolver bug or something
+      // genuinely unexpected. Keep it visible (not swallowed) but framed as
+      // unexpected rather than showing a raw exception string.
+      analysisError.value = 'Something unexpected went wrong analyzing this link. ($e)';
     } finally {
       isAnalyzing.value = false;
     }
@@ -114,7 +123,22 @@ class ImportController extends GetxController {
       saveDestination: destination,
     );
 
-    await _downloadManager.enqueue(download);
+    try {
+      await _downloadManager.enqueue(download);
+    } catch (e) {
+      // Deliberately don't reset flow state or navigate away here — the
+      // user is still on Analysis with the same variant selected, so they
+      // can just try again instead of having to re-paste/re-analyze the
+      // link from scratch.
+      Get.snackbar(
+        'Couldn\'t start download',
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+      );
+      return;
+    }
 
     // Reset flow state and drop back to Home; the Download Queue (reachable
     // from Home's "Continue Download" section) shows live progress.

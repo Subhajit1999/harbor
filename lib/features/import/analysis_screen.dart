@@ -68,12 +68,12 @@ class AnalysisScreen extends GetView<ImportController> {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Row(
               children: [
-                _MetaChip(icon: CupertinoIcons.clock, label: Formatters.duration(meta.duration)),
+                SourceTag(source: meta.source),
                 const SizedBox(width: 8),
-                _MetaChip(icon: CupertinoIcons.globe, label: meta.source.name),
+                _MetaChip(icon: CupertinoIcons.clock, label: Formatters.duration(meta.duration)),
               ],
             ),
             const SizedBox(height: 24),

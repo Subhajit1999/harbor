@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../constants/app_constants.dart';
 import '../theme/app_colors.dart';
 import 'gradient_widgets.dart';
 
@@ -144,6 +145,94 @@ class EmptyState extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Small branded badge showing which platform a link came from — shown on
+/// the Analysis screen. The only place in the app that intentionally
+/// breaks from the single-accent color language: knowing "this is from
+/// Instagram" at a glance is worth a recognizable color here, where
+/// everywhere else stays neutral-plus-accent by design.
+class SourceTag extends StatelessWidget {
+  final MediaSource source;
+  const SourceTag({super.key, required this.source});
+
+  (String, Color, IconData) get _display {
+    switch (source) {
+      case MediaSource.youtube:
+        return ('YouTube', AppColors.sourceYoutube, CupertinoIcons.play_rectangle_fill);
+      case MediaSource.instagram:
+        return ('Instagram', AppColors.sourceInstagram, CupertinoIcons.camera_fill);
+      case MediaSource.facebook:
+        return ('Facebook', AppColors.sourceFacebook, CupertinoIcons.person_2_fill);
+      case MediaSource.unknown:
+        return ('Unknown source', AppColors.sourceUnknown, CupertinoIcons.globe);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, icon) = _display;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Consistent error presentation — glass card, warning icon, message, and
+/// an optional retry action. Replaces plain red `Text` error messages
+/// scattered across screens with one recognizable shape.
+class ErrorBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRetry;
+
+  const ErrorBanner({super.key, required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+              color: AppColors.error, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(message, style: const TextStyle(color: AppColors.textPrimaryDark, height: 1.35)),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: onRetry,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2),
+                child: Text('Retry',
+                    style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

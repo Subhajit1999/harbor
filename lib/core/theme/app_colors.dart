@@ -64,6 +64,15 @@ class AppColors {
   static const Color warning = Color(0xFFFFD60A);
   static const Color error = Color(0xFFFF453A);
 
+  // Source brand colors — used only for the small SourceTag badge on the
+  // Analysis screen, never elsewhere (the rest of the app stays
+  // single-accent by design; this is the one place "which platform" is
+  // worth a recognizable color rather than a neutral chip).
+  static const Color sourceYoutube = Color(0xFFFF0033);
+  static const Color sourceInstagram = Color(0xFFE1306C);
+  static const Color sourceFacebook = Color(0xFF1877F2);
+  static const Color sourceUnknown = Color(0xFF8E8E93);
+
   // Text
   static const Color textPrimaryDark = Color(0xFFFFFFFF);
   static const Color textSecondaryDark = Color(0xFF9A9AA1);

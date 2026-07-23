@@ -56,7 +56,10 @@ class ImportScreen extends GetView<ImportController> {
               if (error == null) return const SizedBox.shrink();
               return Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: Text(error, style: const TextStyle(color: AppColors.error)),
+                child: ErrorBanner(
+                  message: error,
+                  onRetry: () => controller.analyze(),
+                ),
               );
             }),
             const SizedBox(height: 28),
