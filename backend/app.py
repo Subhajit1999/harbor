@@ -77,21 +77,8 @@ def _best_audio_format(formats: list[dict]) -> Optional[dict]:
     return max(audio_only, key=lambda f: f.get("abr") or 0)
 
 
-def _is_ios_compatible(vcodec: Optional[str]) -> bool:
-    if not vcodec or vcodec == "none":
-        return True
-    
-    vcodec_lower = vcodec.lower()
-    unsupported_prefixes = ("vp9", "vp09", "vp8", "av01", "av1", "theora")
-    if any(vcodec_lower.startswith(p) for p in unsupported_prefixes):
-        return False
-        
-    return True
-
-
 def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
-    raw_formats = info.get("formats") or []
-    formats = [f for f in raw_formats if _is_ios_compatible(f.get("vcodec"))]
+    formats = info.get("formats") or []
     variants: list[MediaVariant] = []
 
     best_audio = _best_audio_format(formats)

@@ -10,6 +10,7 @@ import '../../core/utils/app_logger.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/repositories/download_repository.dart';
 import 'mux_service.dart';
+import 'transcode_service.dart';
 
 const _tag = 'DownloadManager';
 
@@ -21,6 +22,7 @@ const _tag = 'DownloadManager';
 class DownloadManager {
   final DownloadRepository _repository;
   final MuxService _muxService;
+  final TranscodeService _transcodeService;
   final Dio _dio;
   final SettingsService? _settingsService;
   final int _fallbackMaxConcurrent;
@@ -36,11 +38,13 @@ class DownloadManager {
   DownloadManager(
     this._repository, {
     MuxService? muxService,
+    TranscodeService? transcodeService,
     Dio? dio,
     SettingsService? settingsService,
     Connectivity? connectivity,
     int maxConcurrent = AppConstants.defaultMaxConcurrentDownloads,
   })  : _muxService = muxService ?? MuxService(),
+        _transcodeService = transcodeService ?? TranscodeService(),
         _dio = dio ?? Dio(),
         _settingsService = settingsService,
         _fallbackMaxConcurrent = maxConcurrent,
@@ -221,6 +225,14 @@ class DownloadManager {
           outputPath: extractedPath,
         );
         await _deleteQuietly(videoPath);
+      }
+
+      // Check for transcoding requirement
+      if (entity.type == MediaType.video) {
+        entity = await _repository.getById(id);
+        if (entity == null) return;
+        await _repository.save(entity.copyWith(status: DownloadStatus.processing));
+        finalPath = await _transcodeService.ensureIosCompatibility(finalPath);
       }
 
       entity = await _repository.getById(id);
