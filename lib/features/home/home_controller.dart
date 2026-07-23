@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import '../../data/resolvers/resolver_registry.dart';
+import '../../data/api/harbor_api.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/entities/media_entity.dart';
 import '../../domain/repositories/download_repository.dart';
@@ -10,7 +10,7 @@ import '../../domain/repositories/media_repository.dart';
 class HomeController extends GetxController {
   final MediaRepository _mediaRepository = Get.find<MediaRepository>();
   final DownloadRepository _downloadRepository = Get.find<DownloadRepository>();
-  final ResolverRegistry _resolverRegistry = Get.find<ResolverRegistry>();
+  final HarborApi _api = Get.find<HarborApi>();
 
   final recentImports = <MediaEntity>[].obs;
   final activeDownloads = <DownloadEntity>[].obs;
@@ -54,7 +54,7 @@ class HomeController extends GetxController {
   Future<void> checkClipboard() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim();
-    if (text != null && _resolverRegistry.isSupported(text)) {
+    if (text != null && _api.isSupported(text)) {
       clipboardLink.value = text;
     } else {
       clipboardLink.value = null;

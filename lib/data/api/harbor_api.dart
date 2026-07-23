@@ -1,46 +1,47 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/app_logger.dart';
 import '../../domain/entities/media_variant.dart';
-import '../../domain/repositories/link_resolver.dart';
 
-const _tag = 'YtDlpResolver';
+const _tag = 'HarborApi';
 
-/// Resolves links via the self-hosted backend (see `backend/`) that wraps
-/// yt-dlp — the app's only resolver, for every source (YouTube, Instagram,
-/// Facebook). There is no on-device scraping fallback (see
-/// [ResolverRegistry]'s doc comment for why); this class is deliberately
-/// thin — just the HTTP call and JSON→entity mapping — because the backend
-/// does all the actual analysis work.
-///
-/// The backend's `/resolve` response is shaped to match [MediaVariant]'s
-/// fields 1:1 (see backend/app.py and backend/README.md).
-class YtDlpResolver implements LinkResolver {
-  final String baseUrl;
-  final String apiKey;
+class ApiException implements Exception {
+  final String message;
+  final Object? cause;
+  ApiException(this.message, [this.cause]);
+
+  @override
+  String toString() => 'ApiException: $message';
+}
+
+class HarborApi {
   final Dio _dio;
 
-  YtDlpResolver({
-    required this.baseUrl,
-    required this.apiKey,
+  HarborApi({
     Dio? dio,
   }) : _dio = dio ?? Dio();
+
+  String get _baseUrl => dotenv.env['RESOLVER_SERVER_URL'] ?? '';
+  String get _apiKey => dotenv.env['RESOLVER_API_KEY'] ?? '';
 
   static final _urlPattern = RegExp(
     r'(youtube\.com|youtu\.be|instagram\.com|facebook\.com|fb\.watch)',
     caseSensitive: false,
   );
 
-  @override
-  String get name => 'yt-dlp';
+  bool isSupported(String url) => _urlPattern.hasMatch(url);
 
-  @override
-  bool canHandle(String url) => _urlPattern.hasMatch(url);
-
-  @override
   Future<MediaMetadata> analyze(String url) async {
-    final endpoint = '$baseUrl/resolve';
+    var base = _baseUrl.trim();
+    if (base.isEmpty) {
+      throw ApiException('Server URL is not configured. Please set it in Settings.');
+    }
+    if (base.endsWith('/')) {
+      base = base.substring(0, base.length - 1);
+    }
+    final endpoint = '$base/resolve';
     final body = {'url': url};
     AppLogger.i(_tag, 'URL: $endpoint\nBODY: ${jsonEncode(body)}');
     try {
@@ -48,7 +49,7 @@ class YtDlpResolver implements LinkResolver {
         endpoint,
         data: body,
         options: Options(
-          headers: {'X-API-Key': apiKey},
+          headers: {'X-API-Key': _apiKey},
           contentType: 'application/json',
         ),
       );
@@ -59,8 +60,10 @@ class YtDlpResolver implements LinkResolver {
         'URL: $endpoint\nSTATUS CODE: ${response.statusCode}\nRESPONSE: ${jsonEncode(data)}',
       );
 
-      final variants =
-          (data['variants'] as List).cast<Map<String, dynamic>>().map(_variantFromJson).toList();
+      final variants = (data['variants'] as List)
+          .cast<Map<String, dynamic>>()
+          .map(_variantFromJson)
+          .toList();
 
       return MediaMetadata(
         title: data['title'] as String? ?? 'Untitled',
@@ -79,16 +82,16 @@ class YtDlpResolver implements LinkResolver {
         e,
         st,
       );
-      throw ResolverException(
+      throw ApiException(
         detail as String? ??
-            'Could not reach the resolver server. Check its URL/API key in '
+            'Could not reach the server. Check its URL/API key in '
                 'Settings, or that it\'s not asleep (free hosting tiers spin '
                 'down when idle).',
         e,
       );
     } catch (e, st) {
       AppLogger.e(_tag, 'URL: $endpoint\nBODY: ${jsonEncode(body)}\nUnexpected error', e, st);
-      throw ResolverException('Could not analyze this link via the resolver server.', e);
+      throw ApiException('Could not analyze this link via the server.', e);
     }
   }
 

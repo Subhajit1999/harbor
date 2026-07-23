@@ -50,6 +50,7 @@ dependencies:
   equatable: ^2.0.5
   logger: ^2.3.0
   shared_preferences: ^2.2.3
+  flutter_dotenv: ^6.0.1
   # Note: the Share Extension bridge is hand-rolled (native App Group +
   # MethodChannel, see ios/Runner/ShareChannelHandler.swift) rather than
   # via a third-party plugin — see ios/SETUP.md for why.
@@ -66,5 +67,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - .env
     - assets/images/
     - assets/icons/

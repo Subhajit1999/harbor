@@ -9,10 +9,9 @@ import '../../core/router/app_routes.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/utils/app_logger.dart';
 import '../../data/download/download_manager.dart';
-import '../../data/resolvers/resolver_registry.dart';
+import '../../data/api/harbor_api.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/entities/media_variant.dart';
-import '../../domain/repositories/link_resolver.dart';
 
 const _tag = 'ImportController';
 
@@ -22,7 +21,7 @@ const _tag = 'ImportController';
 /// state — the URL, the resolved metadata, the chosen variant — is
 /// naturally sequential and shared, not screen-local.
 class ImportController extends GetxController {
-  final ResolverRegistry _resolverRegistry = Get.find<ResolverRegistry>();
+  final HarborApi _api = Get.find<HarborApi>();
   final DownloadManager _downloadManager = Get.find<DownloadManager>();
   final SettingsService _settingsService = Get.find<SettingsService>();
   final _uuid = const Uuid();
@@ -57,57 +56,56 @@ class ImportController extends GetxController {
     if (data?.text != null) linkController.text = data!.text!;
   }
 
-  bool isSupported(String url) => _resolverRegistry.isSupported(url);
+  bool isSupported(String url) => _api.isSupported(url);
 
   Future<void> analyze([String? overrideUrl]) async {
     if (isAnalyzing.value) return;
     final url = (overrideUrl ?? linkController.text).trim();
     if (url.isEmpty) return;
 
-    final resolver = _resolverRegistry.resolverFor(url);
-    if (resolver == null) {
-      AppLogger.w(_tag, 'No resolver supports "$url"');
+    if (!_api.isSupported(url)) {
+      AppLogger.w(_tag, 'API does not support "$url"');
       analysisError.value =
           'This link isn\'t from a supported source (YouTube, Instagram, or Facebook).';
       return;
     }
 
-    AppLogger.i(_tag, 'analyze("$url") via ${resolver.name}');
+    AppLogger.i(_tag, 'analyze("$url") via HarborApi');
     isAnalyzing.value = true;
     analysisError.value = null;
     metadata.value = null;
 
     final stopwatch = Stopwatch()..start();
     try {
-      final result = await resolver.analyze(url);
+      final result = await _api.analyze(url);
       AppLogger.i(
         _tag,
-        'analyze("$url") via ${resolver.name} succeeded in ${stopwatch.elapsedMilliseconds}ms — '
+        'analyze("$url") via HarborApi succeeded in ${stopwatch.elapsedMilliseconds}ms — '
         '${result.videoVariants.length} video + ${result.audioVariants.length} audio variant(s)',
       );
       metadata.value = result;
       await _settingsService.pushRecentLink(url);
       recentLinks.value = _settingsService.recentLinks;
       Get.toNamed(AppRoutes.analysis);
-    } on ResolverException catch (e, st) {
+    } on ApiException catch (e, st) {
       AppLogger.e(
         _tag,
-        'analyze("$url") via ${resolver.name} failed after ${stopwatch.elapsedMilliseconds}ms: ${e.message}',
+        'analyze("$url") via HarborApi failed after ${stopwatch.elapsedMilliseconds}ms: ${e.message}',
         e.cause,
         st,
       );
       analysisError.value = e.message;
     } on SocketException catch (e, st) {
-      AppLogger.e(_tag, 'analyze("$url") via ${resolver.name}: no internet', e, st);
+      AppLogger.e(_tag, 'analyze("$url") via HarborApi: no internet', e, st);
       analysisError.value = 'No internet connection. Check your network and try again.';
     } on TimeoutException catch (e, st) {
-      AppLogger.e(_tag, 'analyze("$url") via ${resolver.name}: timed out', e, st);
+      AppLogger.e(_tag, 'analyze("$url") via HarborApi: timed out', e, st);
       analysisError.value = 'This is taking too long — the source may be slow to respond. Try again.';
     } catch (e, st) {
-      // Not a ResolverException/network error — a resolver bug or something
+      // Not an ApiException/network error — a bug or something
       // genuinely unexpected. Keep it visible (not swallowed) but framed as
       // unexpected rather than showing a raw exception string.
-      AppLogger.e(_tag, 'analyze("$url") via ${resolver.name}: unexpected error', e, st);
+      AppLogger.e(_tag, 'analyze("$url") via HarborApi: unexpected error', e, st);
       analysisError.value = 'Something unexpected went wrong analyzing this link. ($e)';
     } finally {
       isAnalyzing.value = false;

@@ -20,7 +20,7 @@ class AnalysisScreen extends GetView<ImportController> {
   @override
   Widget build(BuildContext context) {
     return HarborScaffold(
-      title: 'Analysis',
+      title: 'Download Options',
       body: Obx(() {
         final meta = controller.metadata.value;
         if (meta == null) {
@@ -163,23 +163,47 @@ class _VariantTile extends GetView<ImportController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(variant.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text(
-                      [
-                        variant.container.toUpperCase(),
-                        if (variant.codec != null) variant.codec!,
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _VariantTag(text: variant.container.toUpperCase()),
+                        if (variant.codec != null) _VariantTag(text: variant.codec!),
+                        if (variant.bitrateKbps != null) _VariantTag(text: '${variant.bitrateKbps} kbps'),
                         if (variant.estimatedSizeBytes != null)
-                          Formatters.bytes(variant.estimatedSizeBytes!),
-                      ].join(' · '),
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondaryDark),
+                          _VariantTag(text: Formatters.bytes(variant.estimatedSizeBytes!)),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const Icon(CupertinoIcons.chevron_right, size: 16, color: AppColors.textSecondaryDark),
+              const Icon(CupertinoIcons.cloud_download, size: 22, color: AppColors.accentDark),
             ],
           ),
         ),
       );
     });
+  }
+}
+
+class _VariantTag extends StatelessWidget {
+  final String text;
+  const _VariantTag({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevatedDark,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, color: AppColors.textSecondaryDark),
+      ),
+    );
   }
 }

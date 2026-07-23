@@ -3,7 +3,7 @@ import '../../data/download/download_manager.dart';
 import '../../data/repositories/download_repository_impl.dart';
 import '../../data/repositories/folder_repository_impl.dart';
 import '../../data/repositories/media_repository_impl.dart';
-import '../../data/resolvers/resolver_registry.dart';
+import '../../data/api/harbor_api.dart';
 import '../../domain/repositories/download_repository.dart';
 import '../../domain/repositories/folder_repository.dart';
 import '../../domain/repositories/media_repository.dart';
@@ -36,8 +36,11 @@ class InitialBindings extends Bindings {
       permanent: true,
     );
 
-    // Resolvers
-    Get.put<ResolverRegistry>(ResolverRegistry(), permanent: true);
+    // API
+    Get.put<HarborApi>(
+      HarborApi(),
+      permanent: true,
+    );
 
     // Download manager (depends on repository + settings for concurrency)
     final downloadManager = DownloadManager(
