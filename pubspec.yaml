@@ -38,10 +38,8 @@ dependencies:
   share_plus: ^9.0.0
   permission_handler: ^11.3.1
 
-  # Network state (Wi-Fi Only downloads setting) + secure credential storage
-  # (resolver API key, moved out of plaintext SharedPreferences)
+  # Network state (Wi-Fi Only downloads setting)
   connectivity_plus: ^6.0.5
-  flutter_secure_storage: ^9.2.2
 
   # UI
   cupertino_icons: ^1.0.8

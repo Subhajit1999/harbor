@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../constants/env.dart';
@@ -11,23 +8,9 @@ import '../constants/env.dart';
 /// second storage engine would be overkill.
 class SettingsService {
   late final SharedPreferences _prefs;
-  final _secureStorage = const FlutterSecureStorage();
-  static const _secureResolverApiKeyKey = 'settings.resolverApiKey.secure';
-  String? _cachedResolverApiKey;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    _cachedResolverApiKey = await _secureStorage.read(key: _secureResolverApiKeyKey);
-    // One-time migration: this used to live in plaintext SharedPreferences.
-    // Move any existing value into Keychain/Keystore, then drop the plaintext copy.
-    if (_cachedResolverApiKey == null) {
-      final legacy = _prefs.getString(AppConstants.prefResolverApiKey);
-      if (legacy != null && legacy.isNotEmpty) {
-        _cachedResolverApiKey = legacy;
-        await _secureStorage.write(key: _secureResolverApiKeyKey, value: legacy);
-        await _prefs.remove(AppConstants.prefResolverApiKey);
-      }
-    }
   }
 
   bool get wifiOnly => _prefs.getBool(AppConstants.prefWifiOnly) ?? false;
@@ -69,24 +52,13 @@ class SettingsService {
   String get themeMode => _prefs.getString(AppConstants.prefThemeMode) ?? 'dark';
   set themeMode(String value) => _prefs.setString(AppConstants.prefThemeMode, value);
 
-  // Optional self-hosted yt-dlp resolver backend (see backend/). Falls back
-  // to the compile-time default baked in via `--dart-define-from-file=.env`
-  // (see lib/core/constants/env.dart) when the user hasn't set an override
-  // in Settings -> Advanced — both empty means the app relies solely on its
-  // built-in scrapers, same as before this existed.
-  String get resolverServerUrl =>
-      _prefs.getString(AppConstants.prefResolverServerUrl) ?? Env.resolverServerUrl;
-  set resolverServerUrl(String value) =>
-      _prefs.setString(AppConstants.prefResolverServerUrl, value);
-
-  // Kept in the iOS Keychain / Android Keystore via flutter_secure_storage,
-  // not plaintext SharedPreferences — this is a real credential, and the app
-  // otherwise positions itself as "privacy-first".
-  String get resolverApiKey => _cachedResolverApiKey ?? Env.resolverApiKey;
-  set resolverApiKey(String value) {
-    _cachedResolverApiKey = value;
-    unawaited(_secureStorage.write(key: _secureResolverApiKeyKey, value: value));
-  }
+  // Optional self-hosted yt-dlp resolver backend (see backend/) — not user
+  // configurable, always the compile-time default baked in via
+  // `--dart-define-from-file=.env` (see lib/core/constants/env.dart).
+  // Empty (no .env at build time) means the app relies solely on its
+  // built-in scrapers.
+  String get resolverServerUrl => Env.resolverServerUrl;
+  String get resolverApiKey => Env.resolverApiKey;
 
   static const _recentLinksKey = 'importScreen.recentLinks';
   static const _maxRecentLinks = 10;
