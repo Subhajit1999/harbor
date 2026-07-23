@@ -46,6 +46,10 @@ class PlayerController extends GetxController {
     videoController = VideoPlayerController.file(File(media.path));
     await videoController!.initialize();
     videoController!.setPlaybackSpeed(playbackSpeed.value);
+    final resumeAt = _settingsService.rememberPosition ? _settingsService.getPlaybackPosition(media.id) : null;
+    if (resumeAt != null && resumeAt < videoController!.value.duration) {
+      await videoController!.seekTo(resumeAt);
+    }
     chewieController = ChewieController(
       videoPlayerController: videoController!,
       autoPlay: true,
@@ -56,6 +60,7 @@ class PlayerController extends GetxController {
     duration.value = videoController!.value.duration;
     videoController!.addListener(_onVideoTick);
     isReady.value = true;
+    _startPositionSaveTimer();
   }
 
   void _onVideoTick() {
@@ -68,11 +73,36 @@ class PlayerController extends GetxController {
     await audioPlayer.setFilePath(media.path);
     await audioPlayer.setSpeed(playbackSpeed.value);
     duration.value = audioPlayer.duration ?? Duration.zero;
+    final resumeAt = _settingsService.rememberPosition ? _settingsService.getPlaybackPosition(media.id) : null;
+    if (resumeAt != null && resumeAt < duration.value) {
+      await audioPlayer.seek(resumeAt);
+    }
     audioPlayer.positionStream.listen((p) => position.value = p);
     audioPlayer.playingStream.listen((p) => isPlaying.value = p);
     isReady.value = true;
-    if (_settingsService.autoResume) {
+    _startPositionSaveTimer();
+    if (_settingsService.autoplayAudio) {
       await audioPlayer.play();
+    }
+  }
+
+  /// Persists the current position every few seconds so playback can resume
+  /// where the user left off (gated on the "Remember Position" setting).
+  Timer? _positionSaveTimer;
+  void _startPositionSaveTimer() {
+    _positionSaveTimer = Timer.periodic(const Duration(seconds: 3), (_) => _savePosition());
+  }
+
+  Future<void> _savePosition() async {
+    if (!_settingsService.rememberPosition) return;
+    final current = position.value;
+    final total = duration.value;
+    // Close enough to the end — treat as finished, don't leave a stale
+    // near-the-end resume point next time it's opened.
+    if (total > Duration.zero && total - current < const Duration(seconds: 3)) {
+      await _settingsService.clearPlaybackPosition(media.id);
+    } else if (current > Duration.zero) {
+      await _settingsService.savePlaybackPosition(media.id, current);
     }
   }
 
@@ -139,6 +169,8 @@ class PlayerController extends GetxController {
 
   @override
   void onClose() {
+    _positionSaveTimer?.cancel();
+    unawaited(_savePosition());
     _sleepTimer?.cancel();
     _positionTicker?.cancel();
     videoController?.removeListener(_onVideoTick);

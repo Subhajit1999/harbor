@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../constants/env.dart';
@@ -8,9 +11,23 @@ import '../constants/env.dart';
 /// second storage engine would be overkill.
 class SettingsService {
   late final SharedPreferences _prefs;
+  final _secureStorage = const FlutterSecureStorage();
+  static const _secureResolverApiKeyKey = 'settings.resolverApiKey.secure';
+  String? _cachedResolverApiKey;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _cachedResolverApiKey = await _secureStorage.read(key: _secureResolverApiKeyKey);
+    // One-time migration: this used to live in plaintext SharedPreferences.
+    // Move any existing value into Keychain/Keystore, then drop the plaintext copy.
+    if (_cachedResolverApiKey == null) {
+      final legacy = _prefs.getString(AppConstants.prefResolverApiKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        _cachedResolverApiKey = legacy;
+        await _secureStorage.write(key: _secureResolverApiKeyKey, value: legacy);
+        await _prefs.remove(AppConstants.prefResolverApiKey);
+      }
+    }
   }
 
   bool get wifiOnly => _prefs.getBool(AppConstants.prefWifiOnly) ?? false;
@@ -22,8 +39,12 @@ class SettingsService {
   set concurrentDownloads(int value) =>
       _prefs.setInt(AppConstants.prefConcurrentDownloads, value);
 
-  bool get autoResume => _prefs.getBool(AppConstants.prefAutoResume) ?? true;
-  set autoResume(bool value) => _prefs.setBool(AppConstants.prefAutoResume, value);
+  // Storage key kept as `settings.autoResume` for backward compatibility with
+  // values already saved on-device; the setting itself actually controls
+  // audio autoplay-on-open, not download resume (downloads always resume
+  // automatically after an interrupted session — see DownloadManager.resumeInterrupted).
+  bool get autoplayAudio => _prefs.getBool(AppConstants.prefAutoResume) ?? true;
+  set autoplayAudio(bool value) => _prefs.setBool(AppConstants.prefAutoResume, value);
 
   SaveDestination get saveDestination {
     final raw = _prefs.getString(AppConstants.prefSaveDestination);
@@ -58,9 +79,14 @@ class SettingsService {
   set resolverServerUrl(String value) =>
       _prefs.setString(AppConstants.prefResolverServerUrl, value);
 
-  String get resolverApiKey =>
-      _prefs.getString(AppConstants.prefResolverApiKey) ?? Env.resolverApiKey;
-  set resolverApiKey(String value) => _prefs.setString(AppConstants.prefResolverApiKey, value);
+  // Kept in the iOS Keychain / Android Keystore via flutter_secure_storage,
+  // not plaintext SharedPreferences — this is a real credential, and the app
+  // otherwise positions itself as "privacy-first".
+  String get resolverApiKey => _cachedResolverApiKey ?? Env.resolverApiKey;
+  set resolverApiKey(String value) {
+    _cachedResolverApiKey = value;
+    unawaited(_secureStorage.write(key: _secureResolverApiKeyKey, value: value));
+  }
 
   static const _recentLinksKey = 'importScreen.recentLinks';
   static const _maxRecentLinks = 10;
@@ -78,4 +104,17 @@ class SettingsService {
   Future<void> clearHistory() async {
     await _prefs.remove(_recentLinksKey);
   }
+
+  static const _playbackPositionPrefix = 'playbackPosition.';
+
+  Duration? getPlaybackPosition(String mediaId) {
+    final ms = _prefs.getInt('$_playbackPositionPrefix$mediaId');
+    return ms == null ? null : Duration(milliseconds: ms);
+  }
+
+  Future<void> savePlaybackPosition(String mediaId, Duration position) =>
+      _prefs.setInt('$_playbackPositionPrefix$mediaId', position.inMilliseconds);
+
+  Future<void> clearPlaybackPosition(String mediaId) =>
+      _prefs.remove('$_playbackPositionPrefix$mediaId');
 }

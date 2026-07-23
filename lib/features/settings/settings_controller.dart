@@ -12,7 +12,7 @@ class SettingsController extends GetxController {
 
   final wifiOnly = false.obs;
   final concurrentDownloads = AppConstants.defaultMaxConcurrentDownloads.obs;
-  final autoResume = true.obs;
+  final autoplayAudio = true.obs;
   final saveDestination = SaveDestination.askEveryTime.obs;
   final defaultPlaybackSpeed = 1.0.obs;
   final rememberPosition = true.obs;
@@ -27,7 +27,7 @@ class SettingsController extends GetxController {
     super.onInit();
     wifiOnly.value = _settingsService.wifiOnly;
     concurrentDownloads.value = _settingsService.concurrentDownloads;
-    autoResume.value = _settingsService.autoResume;
+    autoplayAudio.value = _settingsService.autoplayAudio;
     saveDestination.value = _settingsService.saveDestination;
     defaultPlaybackSpeed.value = _settingsService.defaultPlaybackSpeed;
     rememberPosition.value = _settingsService.rememberPosition;
@@ -71,9 +71,9 @@ class SettingsController extends GetxController {
     _settingsService.concurrentDownloads = value;
   }
 
-  void setAutoResume(bool value) {
-    autoResume.value = value;
-    _settingsService.autoResume = value;
+  void setAutoplayAudio(bool value) {
+    autoplayAudio.value = value;
+    _settingsService.autoplayAudio = value;
   }
 
   void setSaveDestination(SaveDestination value) {
