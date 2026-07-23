@@ -1,13 +1,13 @@
 import '../entities/media_variant.dart';
 
-/// Contract every source-specific import provider implements.
-///
-/// This is the architectural boundary discussed up front: nothing outside a
-/// concrete resolver (e.g. [YoutubeResolver]) knows anything about how a
-/// given platform is analyzed. The rest of the app (Import screen, Analysis
-/// screen, Download manager) only ever talks to this interface, so adding a
-/// new source later is a matter of writing one new class and registering it
-/// in [ResolverRegistry] — nothing else changes.
+/// Contract a link resolver implements. Currently one implementation
+/// (`YtDlpResolver`, calling the backend's `/resolve`) handles every source
+/// — nothing outside it knows or cares how a given platform is analyzed.
+/// The rest of the app (Import screen, Analysis screen, Download manager)
+/// only ever talks to this interface, so a future second implementation
+/// (a different backend, an on-device fallback, etc.) is a matter of
+/// writing one new class and registering it in `ResolverRegistry` —
+/// nothing else changes.
 abstract class LinkResolver {
   /// Human-readable name, e.g. "YouTube". Shown in the UI (source badge).
   String get name;

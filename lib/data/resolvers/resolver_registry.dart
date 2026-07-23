@@ -1,47 +1,44 @@
 import '../../core/constants/env.dart';
 import '../../core/utils/app_logger.dart';
 import '../../domain/repositories/link_resolver.dart';
-import 'facebook_resolver.dart';
-import 'instagram_resolver.dart';
-import 'youtube_resolver.dart';
 import 'ytdlp_resolver.dart';
 
 const _tag = 'ResolverRegistry';
 
-/// Single place the app asks "who can handle this URL". Adding a new source
-/// later means writing one [LinkResolver] implementation and adding it to
-/// [_resolvers] — nothing else in the app needs to change.
+/// Single place the app asks "who can handle this URL". The app has no
+/// on-device link analysis of its own — every source (YouTube, Instagram,
+/// Facebook) goes through [YtDlpResolver], which calls the backend's
+/// `/resolve` endpoint (see `backend/app.py`). There used to be per-source
+/// Dart scrapers here (og:video meta tags, JSON-LD, regex-on-HTML); they
+/// were a maintenance burden every time a platform changed its markup, and
+/// the backend is strictly more capable (real yt-dlp, not a reimplementation
+/// of a slice of it) — so they're gone, not "kept as a fallback."
+///
+/// This means the resolver server URL/API key (see [Env] —
+/// `--dart-define-from-file=.env`) are no longer optional: without them,
+/// nothing here can resolve anything. That's a deliberate tradeoff, not an
+/// oversight — logged loudly at construction so a missing `.env` is obvious
+/// immediately instead of surfacing as a confusing runtime failure.
 class ResolverRegistry {
   final List<LinkResolver> _resolvers;
 
-  /// If a resolver server URL is baked in at build time (see [Env] —
-  /// `--dart-define-from-file=.env`), [YtDlpResolver] is tried first (more
-  /// robust than the built-in scrapers) — the pure-Dart resolvers stay
-  /// registered after it as the always-available fallback for URLs it
-  /// doesn't cover, or for when no server is configured at all (the
-  /// default: the app works standalone, no server required).
   ResolverRegistry({List<LinkResolver>? resolvers})
       : _resolvers = resolvers ??
             [
-              if (Env.resolverServerUrl.isNotEmpty)
-                YtDlpResolver(
-                  baseUrl: Env.resolverServerUrl,
-                  apiKey: Env.resolverApiKey,
-                ),
-              YoutubeResolver(),
-              InstagramResolver(),
-              FacebookResolver(),
+              YtDlpResolver(
+                baseUrl: Env.resolverServerUrl,
+                apiKey: Env.resolverApiKey,
+              ),
             ] {
-    // Logged once at construction, not per-lookup — this is exactly the
-    // line that would have made the "app falls back to the built-in
-    // scraper because .env wasn't baked in" bug obvious immediately
-    // instead of needing a binary-string grep to diagnose.
-    AppLogger.i(
-      _tag,
-      'Registered resolvers (in priority order): '
-      '${_resolvers.map((r) => r.name).join(' -> ')}'
-      '${Env.resolverServerUrl.isEmpty ? ' (no resolver server URL baked in — using built-in scrapers only)' : ''}',
-    );
+    if (Env.resolverServerUrl.isEmpty) {
+      AppLogger.e(
+        _tag,
+        'No resolver server URL baked in (missing --dart-define-from-file=.env at build time) — '
+        'every analyze() will fail. This is not optional anymore; there is no built-in scraper fallback.',
+      );
+    } else {
+      AppLogger.i(_tag, 'Resolver: ${_resolvers.map((r) => r.name).join(', ')} @ ${Env.resolverServerUrl}');
+    }
   }
 
   LinkResolver? resolverFor(String url) {

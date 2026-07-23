@@ -7,18 +7,15 @@ import '../../domain/repositories/link_resolver.dart';
 
 const _tag = 'YtDlpResolver';
 
-/// Resolves links via a self-hosted backend (see `backend/`) that wraps
-/// yt-dlp — noticeably more robust than the app's built-in scrapers
-/// (`instagram_resolver.dart`, `facebook_resolver.dart`,
-/// `youtube_resolver.dart`), at the cost of depending on a server the user
-/// runs themselves. Opt-in: only registered by [ResolverRegistry] when a
-/// resolver server URL is baked in at build time (`--dart-define-from-file=.env`
-/// — see `lib/core/constants/env.dart`) — see that class for the fallback
-/// behavior when it's not.
+/// Resolves links via the self-hosted backend (see `backend/`) that wraps
+/// yt-dlp — the app's only resolver, for every source (YouTube, Instagram,
+/// Facebook). There is no on-device scraping fallback (see
+/// [ResolverRegistry]'s doc comment for why); this class is deliberately
+/// thin — just the HTTP call and JSON→entity mapping — because the backend
+/// does all the actual analysis work.
 ///
 /// The backend's `/resolve` response is shaped to match [MediaVariant]'s
-/// fields 1:1 (see backend/app.py and backend/README.md), so this class is
-/// deliberately thin — just the HTTP call and JSON→entity mapping.
+/// fields 1:1 (see backend/app.py and backend/README.md).
 class YtDlpResolver implements LinkResolver {
   final String baseUrl;
   final String apiKey;
