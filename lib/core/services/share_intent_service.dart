@@ -7,11 +7,14 @@ import 'package:flutter/services.dart';
 /// How it fits together: the Share Extension (a separate app target,
 /// `ios/ShareExtension/ShareViewController.swift`) can't launch the host
 /// app's Flutter engine directly — extensions are short-lived, restricted
-/// processes. So it writes the shared URL into a shared App Group
-/// `UserDefaults` container and then asks iOS to open the host app via a
-/// custom URL scheme (`harbor://import`). `AppDelegate.swift` catches that
-/// URL open, and this channel is how Dart asks "was there a pending share"
-/// on both cold start and while already running.
+/// processes. So it writes the shared URL into a *named* `UIPasteboard`
+/// (`com.harbor.harbor.shareboard`, not `.general` — reading `.general`
+/// cross-process triggers iOS's paste-consent alert on every read, which
+/// would fire on every ordinary cold start, not just real shares) with a
+/// 5-minute expiry, then asks iOS to open the host app via a custom URL
+/// scheme (`harbor://import`). `SceneDelegate.swift` catches that URL open,
+/// and this channel is how Dart asks "was there a pending share" on both
+/// cold start and while already running.
 class ShareIntentService {
   static const _channel = MethodChannel('harbor/share');
   final _controller = StreamController<String>.broadcast();

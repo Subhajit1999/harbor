@@ -67,23 +67,35 @@ class InstagramResolver implements LinkResolver {
       final imageUrl = metaContent('og:image');
       final title = metaContent('og:title') ?? 'Instagram post';
 
-      if (videoUrl == null && imageUrl == null) {
+      // Harbor only downloads video/audio (see MediaVariant/MediaType — there
+      // is no image variant type), so a post with no extractable video URL
+      // is a failure for our purposes even if a thumbnail image was found.
+      // The previous guard only threw when *both* were missing, which let a
+      // photo-only post (or a Reel where every video-URL strategy missed)
+      // through as a "successful" analyze() with an empty `variants` list —
+      // the Analysis screen then rendered title/thumbnail/duration with
+      // nothing below them and no error, which looked like a silent bug
+      // rather than the expected "can't download this" case.
+      if (videoUrl == null) {
         throw ResolverException(
-          'Could not find downloadable media on this page. The post may be '
-          'private, or Instagram may have changed its page structure.',
+          imageUrl != null
+              ? 'This looks like a photo post — Harbor only downloads video '
+                  'and audio, not images.'
+              : 'Could not find downloadable media on this page. The post '
+                  'may be private, or Instagram may have changed its page '
+                  'structure.',
         );
       }
 
-      final variants = <MediaVariant>[];
-      if (videoUrl != null) {
-        variants.add(MediaVariant(
+      final variants = <MediaVariant>[
+        MediaVariant(
           id: 'ig_video',
           type: MediaType.video,
           label: 'Original',
           container: 'mp4',
           streamUrl: videoUrl,
-        ));
-        variants.add(MediaVariant(
+        ),
+        MediaVariant(
           id: 'ig_audio',
           type: MediaType.audio,
           label: 'Audio only',
@@ -93,8 +105,8 @@ class InstagramResolver implements LinkResolver {
           // audio track out natively (see MediaVariant.needsAudioExtraction).
           streamUrl: videoUrl,
           needsAudioExtraction: true,
-        ));
-      }
+        ),
+      ];
 
       return MediaMetadata(
         title: title,

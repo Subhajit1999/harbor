@@ -35,7 +35,7 @@ class FacebookResolver implements LinkResolver {
         .replaceFirst('facebook.com', 'm.facebook.com');
   }
 
-  String _unescape(String raw) => raw.replaceAll(r'\/', '/').replaceAll(r'%', '%');
+  String _unescape(String raw) => raw.replaceAll(r'\/', '/').replaceAll('\\u0026', '&');
 
   @override
   Future<MediaMetadata> analyze(String url) async {
