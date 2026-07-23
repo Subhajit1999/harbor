@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/settings_service.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/repositories/download_repository.dart';
 import 'mux_service.dart';
@@ -17,21 +19,41 @@ class DownloadManager {
   final DownloadRepository _repository;
   final MuxService _muxService;
   final Dio _dio;
+  final SettingsService? _settingsService;
+  final int _fallbackMaxConcurrent;
 
-  final int maxConcurrent;
   final Map<String, CancelToken> _cancelTokens = {};
   final Map<String, DateTime> _lastProgressAt = {};
   final Map<String, int> _lastProgressBytes = {};
   final List<String> _queue = [];
   final Set<String> _active = {};
+  final Connectivity _connectivity;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   DownloadManager(
     this._repository, {
     MuxService? muxService,
     Dio? dio,
-    this.maxConcurrent = AppConstants.defaultMaxConcurrentDownloads,
+    SettingsService? settingsService,
+    Connectivity? connectivity,
+    int maxConcurrent = AppConstants.defaultMaxConcurrentDownloads,
   })  : _muxService = muxService ?? MuxService(),
-        _dio = dio ?? Dio();
+        _dio = dio ?? Dio(),
+        _settingsService = settingsService,
+        _fallbackMaxConcurrent = maxConcurrent,
+        _connectivity = connectivity ?? Connectivity() {
+    // When "Wi-Fi Only" is on and downloads are sitting queued waiting for
+    // Wi-Fi, resume dispatch the moment Wi-Fi becomes available again.
+    _connectivitySub = _connectivity.onConnectivityChanged.listen((_) => _tryStartNext());
+  }
+
+  void dispose() {
+    _connectivitySub?.cancel();
+  }
+
+  // Read live so changing "Concurrent Downloads" in Settings takes effect
+  // immediately instead of requiring an app restart.
+  int get maxConcurrent => _settingsService?.concurrentDownloads ?? _fallbackMaxConcurrent;
 
   Future<void> enqueue(DownloadEntity download) async {
     await _repository.save(download.copyWith(status: DownloadStatus.queued));
@@ -73,13 +95,34 @@ class DownloadManager {
     await _repository.save(entity.copyWith(
       status: DownloadStatus.queued,
       retryCount: entity.retryCount + 1,
-      errorMessage: null,
+      clearErrorMessage: true,
     ));
     if (!_queue.contains(id)) _queue.add(id);
     _tryStartNext();
   }
 
-  void _tryStartNext() {
+  /// Requeues any downloads left `queued`/`downloading` from a previous app
+  /// session (e.g. the app was killed mid-download) so they resume instead
+  /// of sitting stuck forever. Call once at startup.
+  Future<void> resumeInterrupted() async {
+    final active = await _repository.getActive();
+    for (final entity in active) {
+      // Paused is a deliberate user action — leave those alone. Only
+      // `queued`/`downloading` were interrupted by the app being killed.
+      if (entity.status == DownloadStatus.paused) continue;
+      await _repository.save(entity.copyWith(status: DownloadStatus.queued));
+      if (!_queue.contains(entity.id)) _queue.add(entity.id);
+    }
+    _tryStartNext();
+  }
+
+  Future<void> _tryStartNext() async {
+    if (_settingsService?.wifiOnly ?? false) {
+      final results = await _connectivity.checkConnectivity();
+      final onWifi = results.contains(ConnectivityResult.wifi) ||
+          results.contains(ConnectivityResult.ethernet);
+      if (!onWifi) return; // stay queued until Wi-Fi (or ethernet) is back
+    }
     while (_active.length < maxConcurrent && _queue.isNotEmpty) {
       final id = _queue.removeAt(0);
       _active.add(id);
@@ -139,6 +182,12 @@ class DownloadManager {
           progressOffset: 0.45,
         );
 
+        // Native mux has no progress callback — surface a distinct status
+        // instead of leaving the progress bar frozen near 90-100% looking stuck.
+        entity = await _repository.getById(id);
+        if (entity == null) return;
+        await _repository.save(entity.copyWith(status: DownloadStatus.processing));
+
         final muxedPath = p.join(dir.path, '${entity.id}_final.mp4');
         finalPath = await _muxService.mux(
           videoPath: videoPath,
@@ -146,9 +195,13 @@ class DownloadManager {
           outputPath: muxedPath,
         );
         // Clean up intermediates once mux succeeds.
-        await File(videoPath).delete().catchError((_) => File(videoPath));
-        await File(audioPath).delete().catchError((_) => File(audioPath));
+        await _deleteQuietly(videoPath);
+        await _deleteQuietly(audioPath);
       } else if (entity.needsAudioExtraction) {
+        entity = await _repository.getById(id);
+        if (entity == null) return;
+        await _repository.save(entity.copyWith(status: DownloadStatus.processing));
+
         // Sources like Instagram/Facebook don't expose a separate
         // audio-only URL — `videoPath` is actually a full video file that
         // needs its audio track pulled out natively before it's a real
@@ -158,7 +211,7 @@ class DownloadManager {
           sourcePath: videoPath,
           outputPath: extractedPath,
         );
-        await File(videoPath).delete().catchError((_) => File(videoPath));
+        await _deleteQuietly(videoPath);
       }
 
       entity = await _repository.getById(id);
@@ -191,6 +244,19 @@ class DownloadManager {
   final Map<String, String> _finalPaths = {};
   String? finalPathFor(String id) => _finalPaths[id];
 
+  /// Deletes an intermediate file, logging (not swallowing) failures so
+  /// leftover `.mp4`/`.m4a` files from failed cleanup are at least visible
+  /// instead of silently accumulating on disk.
+  Future<void> _deleteQuietly(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (e) {
+      // ignore: avoid_print
+      print('DownloadManager: failed to delete intermediate file $path: $e');
+    }
+  }
+
   Future<void> _handleFailure(String id, String message) async {
     final entity = await _repository.getById(id);
     if (entity == null) return;
@@ -200,9 +266,15 @@ class DownloadManager {
         retryCount: entity.retryCount + 1,
         errorMessage: message,
       ));
-      await Future.delayed(AppConstants.retryBackoff);
-      if (!_queue.contains(id)) _queue.add(id);
-      _tryStartNext();
+      // Don't await the backoff here — that would hold this download's
+      // concurrency slot idle for the whole delay, since the caller's
+      // `finally` block (which frees the slot) can't run until this
+      // returns. Schedule the requeue in the background instead so other
+      // queued downloads can use the slot immediately.
+      unawaited(Future.delayed(AppConstants.retryBackoff, () {
+        if (!_queue.contains(id)) _queue.add(id);
+        _tryStartNext();
+      }));
     } else {
       await _repository.save(entity.copyWith(
         status: DownloadStatus.failed,
@@ -276,7 +348,14 @@ class DownloadManager {
     required double progressWeight,
     required double progressOffset,
   }) async {
-    if (effectiveTotal <= 0) return;
+    final entity = await _repository.getById(id);
+    if (entity == null) return;
+
+    // Server didn't send content-length (effectiveTotal == 0) — fall back
+    // to the entity's previously known total instead of bailing out and
+    // leaving progress/speed/ETA frozen for this segment.
+    final resolvedTotal = effectiveTotal > 0 ? effectiveTotal : entity.totalBytes;
+    if (resolvedTotal <= 0) return;
 
     final now = DateTime.now();
     final lastAt = _lastProgressAt[id];
@@ -294,12 +373,9 @@ class DownloadManager {
       _lastProgressBytes[id] = effectiveReceived;
     }
 
-    final entity = await _repository.getById(id);
-    if (entity == null) return;
-
     final overallFraction =
-        progressOffset + (effectiveReceived / effectiveTotal) * progressWeight;
-    final overallTotal = entity.totalBytes > 0 ? entity.totalBytes : effectiveTotal;
+        progressOffset + (effectiveReceived / resolvedTotal) * progressWeight;
+    final overallTotal = entity.totalBytes > 0 ? entity.totalBytes : resolvedTotal;
     final overallDownloaded = (overallFraction * overallTotal).round();
 
     Duration? eta;

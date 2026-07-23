@@ -38,4 +38,6 @@ enum MediaType { video, audio }
 
 enum MediaSource { youtube, instagram, facebook, unknown }
 
-enum DownloadStatus { queued, downloading, paused, completed, failed, canceled }
+// `processing` appended at the end (not inserted) — Isar stores this enum
+// by ordinal index, so existing persisted records must keep their indices.
+enum DownloadStatus { queued, downloading, paused, completed, failed, canceled, processing }

@@ -1,11 +1,19 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/common_widgets.dart';
 import '../../core/widgets/harbor_scaffold.dart';
 import 'download_queue_controller.dart';
 import 'widgets/download_card.dart';
+
+const _activeStatuses = {
+  DownloadStatus.queued,
+  DownloadStatus.downloading,
+  DownloadStatus.paused,
+  DownloadStatus.processing,
+};
 
 class DownloadQueueScreen extends GetView<DownloadQueueController> {
   const DownloadQueueScreen({super.key});
@@ -40,6 +48,27 @@ class DownloadQueueScreen extends GetView<DownloadQueueController> {
                 ),
                 child: const Icon(CupertinoIcons.delete, color: AppColors.error),
               ),
+              confirmDismiss: (_) async {
+                if (!_activeStatuses.contains(d.status)) return true;
+                return await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Cancel download?'),
+                        content: Text('"${d.mediaTitle}" is still in progress.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Keep downloading'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Cancel download'),
+                          ),
+                        ],
+                      ),
+                    ) ??
+                    false;
+              },
               onDismissed: (_) => controller.cancel(d.id),
               child: DownloadCard(
                 download: d,

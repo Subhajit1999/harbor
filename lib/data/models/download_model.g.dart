@@ -356,6 +356,7 @@ const _DownloadModelstatusEnumValueMap = {
   'completed': 3,
   'failed': 4,
   'canceled': 5,
+  'processing': 6,
 };
 const _DownloadModelstatusValueEnumMap = {
   0: DownloadStatus.queued,
@@ -364,6 +365,7 @@ const _DownloadModelstatusValueEnumMap = {
   3: DownloadStatus.completed,
   4: DownloadStatus.failed,
   5: DownloadStatus.canceled,
+  6: DownloadStatus.processing,
 };
 const _DownloadModeltypeEnumValueMap = {
   'video': 0,

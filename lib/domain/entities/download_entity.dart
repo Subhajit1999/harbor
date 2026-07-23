@@ -61,6 +61,7 @@ class DownloadEntity extends Equatable {
     DateTime? finishedAt,
     int? retryCount,
     String? errorMessage,
+    bool clearErrorMessage = false,
     int? totalBytes,
     bool? indexed,
   }) {
@@ -83,7 +84,7 @@ class DownloadEntity extends Equatable {
       startedAt: startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
       retryCount: retryCount ?? this.retryCount,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       saveDestination: saveDestination,
       indexed: indexed ?? this.indexed,
     );

@@ -43,12 +43,13 @@ class InitialBindings extends Bindings {
     );
 
     // Download manager (depends on repository + settings for concurrency)
-    Get.put<DownloadManager>(
-      DownloadManager(
-        Get.find<DownloadRepository>(),
-        maxConcurrent: Get.find<SettingsService>().concurrentDownloads,
-      ),
-      permanent: true,
+    final downloadManager = DownloadManager(
+      Get.find<DownloadRepository>(),
+      settingsService: Get.find<SettingsService>(),
     );
+    Get.put<DownloadManager>(downloadManager, permanent: true);
+    // Requeue anything left `queued`/`downloading` from a previous session
+    // (app killed mid-download) so it resumes instead of sitting stuck.
+    downloadManager.resumeInterrupted();
   }
 }

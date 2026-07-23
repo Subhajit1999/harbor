@@ -31,13 +31,18 @@ class DownloadQueueController extends GetxController {
   final downloads = <DownloadEntity>[].obs;
   StreamSubscription<List<DownloadEntity>>? _downloadsSub;
 
+  // In-memory guard so a completed-but-not-yet-indexed download isn't
+  // re-triggered on every `watchAll` emission while indexing is in flight
+  // (indexed is only persisted `true` once indexing actually succeeds).
+  final Set<String> _indexing = {};
+
   @override
   void onInit() {
     super.onInit();
     _downloadsSub = _downloadRepository.watchAll().listen((all) {
       downloads.value = all;
       for (final d in all) {
-        if (d.status == DownloadStatus.completed && !d.indexed) {
+        if (d.status == DownloadStatus.completed && !d.indexed && !_indexing.contains(d.id)) {
           _indexCompletedDownload(d);
         }
       }
@@ -56,13 +61,15 @@ class DownloadQueueController extends GetxController {
   Future<void> retry(String id) => _downloadManager.retry(id);
 
   Future<void> _indexCompletedDownload(DownloadEntity download) async {
-    // Mark indexed immediately (even before the async work below completes)
-    // so the listener above doesn't re-trigger this on the next emission.
-    await _downloadRepository.save(download.copyWith(indexed: true));
-
+    _indexing.add(download.id);
     try {
       final sourcePath = _downloadManager.finalPathFor(download.id);
-      if (sourcePath == null || !await File(sourcePath).exists()) return;
+      if (sourcePath == null || !await File(sourcePath).exists()) {
+        await _downloadRepository.save(download.copyWith(
+          errorMessage: 'Downloaded file went missing before it could be saved to your library.',
+        ));
+        return;
+      }
 
       final fileName = '${download.mediaTitle.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}'
           '.${download.format}';
@@ -100,10 +107,20 @@ class DownloadQueueController extends GetxController {
       );
 
       await _mediaRepository.save(media);
-    } catch (_) {
+      // Only mark indexed now that the file is actually saved and the
+      // library entry exists — marking it earlier meant a save failure
+      // could make a completed download silently vanish with no retry path.
+      await _downloadRepository.save(download.copyWith(indexed: true, clearErrorMessage: true));
+    } catch (e) {
       // Indexing failure shouldn't crash the queue; the download itself
-      // succeeded. Worth surfacing in a future "needs attention" state if
-      // this happens in practice.
+      // succeeded. Surface it via errorMessage so it's visible in the
+      // queue instead of silently disappearing; `indexed` stays false so
+      // it's retried on the next app session.
+      await _downloadRepository.save(download.copyWith(
+        errorMessage: 'Saved file could not be added to your library: $e',
+      ));
+    } finally {
+      _indexing.remove(download.id);
     }
   }
 

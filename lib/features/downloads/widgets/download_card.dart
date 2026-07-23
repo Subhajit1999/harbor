@@ -53,15 +53,27 @@ class DownloadCard extends StatelessWidget {
                 download.status == DownloadStatus.downloading ||
                         download.status == DownloadStatus.queued
                     ? GradientProgressBar(value: download.progress, height: 5)
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: download.progress,
-                          minHeight: 5,
-                          backgroundColor: Colors.white12,
-                          color: _statusColor(download.status),
-                        ),
-                      ),
+                    : download.status == DownloadStatus.processing
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            // Indeterminate — native mux/extract has no
+                            // progress callback, so a filled bar would be
+                            // misleading rather than just frozen.
+                            child: const LinearProgressIndicator(
+                              minHeight: 5,
+                              backgroundColor: Colors.white12,
+                              color: AppColors.accent,
+                            ),
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: download.progress,
+                              minHeight: 5,
+                              backgroundColor: Colors.white12,
+                              color: _statusColor(download.status),
+                            ),
+                          ),
                 const SizedBox(height: 6),
                 Text(
                   _statusLine(download),
@@ -105,6 +117,8 @@ class DownloadCard extends StatelessWidget {
         return d.errorMessage ?? 'Failed';
       case DownloadStatus.canceled:
         return 'Canceled';
+      case DownloadStatus.processing:
+        return 'Processing…';
     }
   }
 
@@ -121,6 +135,12 @@ class DownloadCard extends StatelessWidget {
         return const Icon(CupertinoIcons.checkmark_circle_fill, color: AppColors.success);
       case DownloadStatus.canceled:
         return IconButton(icon: const Icon(CupertinoIcons.arrow_clockwise), onPressed: onRetry);
+      case DownloadStatus.processing:
+        return const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+        );
     }
   }
 }
