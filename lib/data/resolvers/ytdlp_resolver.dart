@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/utils/app_logger.dart';
@@ -42,12 +43,13 @@ class YtDlpResolver implements LinkResolver {
 
   @override
   Future<MediaMetadata> analyze(String url) async {
-    AppLogger.i(_tag, 'POST $baseUrl/resolve for $url');
-    final stopwatch = Stopwatch()..start();
+    final endpoint = '$baseUrl/resolve';
+    final body = {'url': url};
+    AppLogger.i(_tag, 'URL: $endpoint\nBODY: ${jsonEncode(body)}');
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '$baseUrl/resolve',
-        data: {'url': url},
+        endpoint,
+        data: body,
         options: Options(
           headers: {'X-API-Key': apiKey},
           contentType: 'application/json',
@@ -55,15 +57,13 @@ class YtDlpResolver implements LinkResolver {
       );
 
       final data = response.data!;
-      final variants = (data['variants'] as List)
-          .cast<Map<String, dynamic>>()
-          .map(_variantFromJson)
-          .toList();
       AppLogger.i(
         _tag,
-        '$baseUrl/resolve -> ${response.statusCode} in ${stopwatch.elapsedMilliseconds}ms, '
-        '${variants.length} variant(s)',
+        'URL: $endpoint\nSTATUS CODE: ${response.statusCode}\nRESPONSE: ${jsonEncode(data)}',
       );
+
+      final variants =
+          (data['variants'] as List).cast<Map<String, dynamic>>().map(_variantFromJson).toList();
 
       return MediaMetadata(
         title: data['title'] as String? ?? 'Untitled',
@@ -77,8 +77,8 @@ class YtDlpResolver implements LinkResolver {
       final detail = e.response?.data is Map ? e.response?.data['detail'] : null;
       AppLogger.e(
         _tag,
-        '$baseUrl/resolve failed after ${stopwatch.elapsedMilliseconds}ms: '
-        '${e.response?.statusCode} ${detail ?? e.message}',
+        'URL: $endpoint\nBODY: ${jsonEncode(body)}\n'
+        'STATUS CODE: ${e.response?.statusCode}\nRESPONSE: ${e.response?.data}',
         e,
         st,
       );
@@ -90,7 +90,7 @@ class YtDlpResolver implements LinkResolver {
         e,
       );
     } catch (e, st) {
-      AppLogger.e(_tag, 'Unexpected error calling $baseUrl/resolve', e, st);
+      AppLogger.e(_tag, 'URL: $endpoint\nBODY: ${jsonEncode(body)}\nUnexpected error', e, st);
       throw ResolverException('Could not analyze this link via the resolver server.', e);
     }
   }
