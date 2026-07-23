@@ -25,11 +25,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <!-- Makes Harbor appear in the Android Share Sheet for shared links
-                 (YouTube/Instagram/Facebook apps share URLs as text/plain). -->
+                 (YouTube/Instagram/Facebook apps share URLs as text/plain).
+                 `text/*` (not the exact string "text/plain") because Android's
+                 IntentFilter MIME matching is exact and doesn't strip params —
+                 many apps send "text/plain; charset=utf-8" etc, which would
+                 never match a plain "text/plain" filter. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND"/>
                 <category android:name="android.intent.category.DEFAULT"/>
-                <data android:mimeType="text/plain"/>
+                <data android:mimeType="text/*"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

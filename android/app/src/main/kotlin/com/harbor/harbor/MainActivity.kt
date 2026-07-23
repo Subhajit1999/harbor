@@ -53,15 +53,32 @@ class MainActivity : FlutterActivity() {
   }
 
   private fun handleShareIntent(intent: Intent?, isColdStart: Boolean) {
-    if (intent == null || intent.action != Intent.ACTION_SEND || intent.type != "text/plain") {
+    // Loosened from an exact "text/plain" match — some apps send a type
+    // with parameters (e.g. "text/plain; charset=utf-8"), which failed
+    // this check and made the share silently no-op (app opens to Home,
+    // nothing imported — easy to mistake for "nothing happens" if it's
+    // fast). startsWith covers that without widening scope to non-text
+    // shares (images, etc.) we can't do anything with anyway.
+    if (intent == null || intent.action != Intent.ACTION_SEND ||
+      intent.type?.startsWith("text/") != true
+    ) {
       return
     }
-    val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+    val rawText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: return
+    // Some apps share a caption + link together rather than a clean URL
+    // string — pull the first URL substring out instead of requiring the
+    // whole extra to be exactly a URL.
+    val sharedText = firstUrl(rawText) ?: rawText
 
     if (isColdStart) {
       pendingSharedText = sharedText
     } else {
       methodChannel?.invokeMethod("onShareReceived", sharedText)
     }
+  }
+
+  private fun firstUrl(text: String): String? {
+    val matcher = android.util.Patterns.WEB_URL.matcher(text)
+    return if (matcher.find()) matcher.group() else null
   }
 }

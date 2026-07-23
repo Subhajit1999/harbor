@@ -1,13 +1,18 @@
 import Flutter
 import UIKit
 
-/// Dart-facing side of the Share Extension bridge. Handoff uses
-/// UIPasteboard (a custom type identifier, not the plain-text slot) rather
-/// than an App Group container — App Groups requires a paid Apple Developer
-/// Program membership, and this needs to work on a free/personal signing
-/// team too. The extension writes here with a short expiration
-/// (see ShareViewController.swift); this type identifier MUST match there.
+/// Dart-facing side of the Share Extension bridge. Handoff uses a *named*
+/// UIPasteboard rather than `.general` or an App Group container — reading
+/// `.general` cross-process (extension writes, host app reads) makes iOS
+/// show its "<App> would like to paste from <Other App>" consent alert on
+/// every single read, including ordinary cold starts where nothing was even
+/// shared; a named pasteboard is app-owned shared storage and isn't subject
+/// to that prompt. App Groups was avoided because it requires a paid Apple
+/// Developer Program membership, and this needs to work on a free/personal
+/// signing team too. The extension writes here with a short expiration
+/// (see ShareViewController.swift); both identifiers MUST match there.
 let harborSharedURLPasteboardType = "com.harbor.harbor.sharedurl"
+let harborSharedPasteboardName = UIPasteboard.Name("com.harbor.harbor.shareboard")
 
 class ShareChannelHandler {
   private let channel: FlutterMethodChannel
@@ -26,8 +31,8 @@ class ShareChannelHandler {
   }
 
   private func consumeAndClear() -> String? {
-    let pasteboard = UIPasteboard.general
-    guard let url = pasteboard.value(forPasteboardType: harborSharedURLPasteboardType) as? String
+    guard let pasteboard = UIPasteboard(name: harborSharedPasteboardName, create: false),
+          let url = pasteboard.value(forPasteboardType: harborSharedURLPasteboardType) as? String
     else { return nil }
     // Clears the whole pasteboard — acceptable since we're consuming this
     // within moments of the extension writing it (no room for the user to
