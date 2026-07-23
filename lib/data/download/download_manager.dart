@@ -6,9 +6,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/settings_service.dart';
+import '../../core/utils/app_logger.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/repositories/download_repository.dart';
 import 'mux_service.dart';
+
+const _tag = 'DownloadManager';
 
 /// Owns all in-flight downloads: enqueues, respects a concurrency cap,
 /// supports pause/resume via HTTP range requests, retries transient
@@ -56,6 +59,7 @@ class DownloadManager {
   int get maxConcurrent => _settingsService?.concurrentDownloads ?? _fallbackMaxConcurrent;
 
   Future<void> enqueue(DownloadEntity download) async {
+    AppLogger.i(_tag, 'enqueue ${download.id} "${download.mediaTitle}" (${download.format})');
     await _repository.save(download.copyWith(status: DownloadStatus.queued));
     _queue.add(download.id);
     _tryStartNext();
@@ -147,6 +151,11 @@ class DownloadManager {
 
     final cancelToken = CancelToken();
     _cancelTokens[id] = cancelToken;
+    AppLogger.i(
+      _tag,
+      'start $id: streamUrl=${_truncate(entity.streamUrl)}, '
+      'requiresMuxing=${entity.audioStreamUrl != null}, needsAudioExtraction=${entity.needsAudioExtraction}',
+    );
 
     try {
       await _repository.save(entity.copyWith(status: DownloadStatus.downloading));
@@ -221,18 +230,22 @@ class DownloadManager {
         finishedAt: DateTime.now(),
         downloadedBytes: entity.totalBytes,
       ));
+      AppLogger.i(_tag, 'completed $id -> $finalPath');
       // Callers (e.g. ImportController) are responsible for indexing the
       // finished file into MediaRepository + moving it to the chosen save
       // destination (Photos/Files) — that's a library concern, not a
       // download-transport concern, so it stays out of this class.
       _finalPaths[id] = finalPath;
-    } on DioException catch (e) {
+    } on DioException catch (e, st) {
       if (CancelToken.isCancel(e)) {
         // Paused or canceled — status was already set by pause()/cancel().
+        AppLogger.d(_tag, '$id canceled/paused');
         return;
       }
+      AppLogger.e(_tag, '$id network error', e, st);
       await _handleFailure(id, e.message ?? 'Network error');
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.e(_tag, '$id failed', e, st);
       await _handleFailure(id, e.toString());
     } finally {
       _cancelTokens.remove(id);
@@ -244,6 +257,12 @@ class DownloadManager {
   final Map<String, String> _finalPaths = {};
   String? finalPathFor(String id) => _finalPaths[id];
 
+  /// CDN stream URLs carry long signed query strings — truncate for logs so
+  /// they're skimmable (and don't dump a valid signed URL into logs in
+  /// full) while still showing enough to identify the host/path.
+  String _truncate(String url, {int maxLength = 100}) =>
+      url.length <= maxLength ? url : '${url.substring(0, maxLength)}…';
+
   /// Deletes an intermediate file, logging (not swallowing) failures so
   /// leftover `.mp4`/`.m4a` files from failed cleanup are at least visible
   /// instead of silently accumulating on disk.
@@ -252,8 +271,7 @@ class DownloadManager {
       final file = File(path);
       if (await file.exists()) await file.delete();
     } catch (e) {
-      // ignore: avoid_print
-      print('DownloadManager: failed to delete intermediate file $path: $e');
+      AppLogger.w(_tag, 'failed to delete intermediate file $path: $e');
     }
   }
 
@@ -261,6 +279,10 @@ class DownloadManager {
     final entity = await _repository.getById(id);
     if (entity == null) return;
     if (entity.retryCount < AppConstants.maxRetryAttempts) {
+      AppLogger.w(
+        _tag,
+        '$id retrying (attempt ${entity.retryCount + 1}/${AppConstants.maxRetryAttempts}): $message',
+      );
       await _repository.save(entity.copyWith(
         status: DownloadStatus.queued,
         retryCount: entity.retryCount + 1,
@@ -276,6 +298,7 @@ class DownloadManager {
         _tryStartNext();
       }));
     } else {
+      AppLogger.e(_tag, '$id gave up after ${AppConstants.maxRetryAttempts} attempts: $message');
       await _repository.save(entity.copyWith(
         status: DownloadStatus.failed,
         errorMessage: message,

@@ -3,8 +3,11 @@ import 'package:dio/dio.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/app_logger.dart';
 import '../../domain/entities/media_variant.dart';
 import '../../domain/repositories/link_resolver.dart';
+
+const _tag = 'InstagramResolver';
 
 /// Resolves public Instagram post/reel links by requesting the post page
 /// and reading the video URL Instagram embeds in the server-rendered HTML
@@ -52,6 +55,10 @@ class InstagramResolver implements LinkResolver {
       );
 
       final html = response.data ?? '';
+      AppLogger.d(
+        _tag,
+        'GET $url -> ${response.statusCode}, ${html.length} bytes of HTML',
+      );
       final document = html_parser.parse(html);
 
       String? metaContent(String property) {
@@ -59,13 +66,33 @@ class InstagramResolver implements LinkResolver {
         return tag?.attributes['content'];
       }
 
-      final videoUrl = metaContent('og:video') ??
-          metaContent('og:video:secure_url') ??
-          metaContent('og:video:url') ??
-          _videoUrlFromLdJson(document) ??
-          _videoUrlFromRawHtml(html);
+      // Logged as a chain (not just the final result) so a misclassification
+      // like "photo post" is diagnosable from the log alone — which
+      // strategies were tried and that all of them came back empty, rather
+      // than just the final null forcing a guess at why.
+      String? videoUrl;
+      String usedStrategy = 'none';
+      for (final entry in <String, String? Function()>{
+        'og:video': () => metaContent('og:video'),
+        'og:video:secure_url': () => metaContent('og:video:secure_url'),
+        'og:video:url': () => metaContent('og:video:url'),
+        'ld+json': () => _videoUrlFromLdJson(document),
+        'raw-html-regex': () => _videoUrlFromRawHtml(html),
+      }.entries) {
+        final result = entry.value();
+        if (result != null) {
+          videoUrl = result;
+          usedStrategy = entry.key;
+          break;
+        }
+      }
       final imageUrl = metaContent('og:image');
       final title = metaContent('og:title') ?? 'Instagram post';
+      AppLogger.i(
+        _tag,
+        'video URL: ${videoUrl != null ? 'found via $usedStrategy' : 'NOT FOUND (tried all strategies)'}, '
+        'thumbnail: ${imageUrl != null}',
+      );
 
       // Harbor only downloads video/audio (see MediaVariant/MediaType — there
       // is no image variant type), so a post with no extractable video URL
@@ -118,7 +145,8 @@ class InstagramResolver implements LinkResolver {
       );
     } on ResolverException {
       rethrow;
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.e(_tag, 'Unexpected error analyzing $url', e, st);
       throw ResolverException(
         'Could not analyze this Instagram link. It may be private or '
         'Instagram may have changed something the resolver needs updating for.',

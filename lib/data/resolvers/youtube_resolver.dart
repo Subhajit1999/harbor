@@ -1,7 +1,10 @@
 import 'package:youtube_explode_dart/youtube_explode_dart.dart' as yt;
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/app_logger.dart';
 import '../../domain/entities/media_variant.dart';
 import '../../domain/repositories/link_resolver.dart';
+
+const _tag = 'YoutubeResolver';
 
 /// Resolves YouTube links entirely on-device via `youtube_explode_dart`,
 /// which reimplements the same internal player-API + signature-cipher
@@ -84,6 +87,12 @@ class YoutubeResolver implements LinkResolver {
         ));
       }
 
+      AppLogger.i(
+        _tag,
+        '"${video.title}" -> ${manifest.muxed.length} muxed, '
+        '${manifest.videoOnly.length} video-only, ${manifest.audioOnly.length} audio-only streams',
+      );
+
       return MediaMetadata(
         title: video.title,
         thumbnailUrl: video.thumbnails.highResUrl,
@@ -92,7 +101,8 @@ class YoutubeResolver implements LinkResolver {
         sourceUrl: url,
         variants: variants,
       );
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.e(_tag, 'Unexpected error analyzing $url', e, st);
       throw ResolverException(
         'Could not analyze this YouTube link. It may be private, age-restricted, '
         'region-locked, or YouTube may have changed something the resolver '

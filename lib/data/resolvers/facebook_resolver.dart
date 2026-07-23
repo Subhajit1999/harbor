@@ -1,7 +1,10 @@
 import 'package:dio/dio.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/utils/app_logger.dart';
 import '../../domain/entities/media_variant.dart';
 import '../../domain/repositories/link_resolver.dart';
+
+const _tag = 'FacebookResolver';
 
 /// Resolves public Facebook video links by requesting the mobile-site
 /// version of the page (`m.facebook.com`), which historically embeds plain
@@ -53,12 +56,14 @@ class FacebookResolver implements LinkResolver {
       );
 
       final body = response.data ?? '';
+      AppLogger.d(_tag, 'GET $mobileUrl -> ${response.statusCode}, ${body.length} bytes');
       final hdMatch = _hdPattern.firstMatch(body);
       final sdMatch = _sdPattern.firstMatch(body);
       final titleMatch = _titlePattern.firstMatch(body);
 
       final hdUrl = hdMatch != null ? _unescape(hdMatch.group(1)!) : null;
       final sdUrl = sdMatch != null ? _unescape(sdMatch.group(1)!) : null;
+      AppLogger.i(_tag, 'hdUrl found: ${hdUrl != null}, sdUrl found: ${sdUrl != null}');
 
       if (hdUrl == null && sdUrl == null) {
         throw ResolverException(
@@ -109,7 +114,8 @@ class FacebookResolver implements LinkResolver {
       );
     } on ResolverException {
       rethrow;
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.e(_tag, 'Unexpected error analyzing $url', e, st);
       throw ResolverException(
         'Could not analyze this Facebook link. It may be private or '
         'Facebook may have changed something the resolver needs updating for.',

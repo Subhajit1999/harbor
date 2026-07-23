@@ -1,9 +1,12 @@
 import '../../core/constants/env.dart';
+import '../../core/utils/app_logger.dart';
 import '../../domain/repositories/link_resolver.dart';
 import 'facebook_resolver.dart';
 import 'instagram_resolver.dart';
 import 'youtube_resolver.dart';
 import 'ytdlp_resolver.dart';
+
+const _tag = 'ResolverRegistry';
 
 /// Single place the app asks "who can handle this URL". Adding a new source
 /// later means writing one [LinkResolver] implementation and adding it to
@@ -28,12 +31,27 @@ class ResolverRegistry {
               YoutubeResolver(),
               InstagramResolver(),
               FacebookResolver(),
-            ];
+            ] {
+    // Logged once at construction, not per-lookup — this is exactly the
+    // line that would have made the "app falls back to the built-in
+    // scraper because .env wasn't baked in" bug obvious immediately
+    // instead of needing a binary-string grep to diagnose.
+    AppLogger.i(
+      _tag,
+      'Registered resolvers (in priority order): '
+      '${_resolvers.map((r) => r.name).join(' -> ')}'
+      '${Env.resolverServerUrl.isEmpty ? ' (no resolver server URL baked in — using built-in scrapers only)' : ''}',
+    );
+  }
 
   LinkResolver? resolverFor(String url) {
     for (final resolver in _resolvers) {
-      if (resolver.canHandle(url)) return resolver;
+      if (resolver.canHandle(url)) {
+        AppLogger.d(_tag, 'resolverFor("$url") -> ${resolver.name}');
+        return resolver;
+      }
     }
+    AppLogger.w(_tag, 'resolverFor("$url") -> no resolver matched');
     return null;
   }
 
