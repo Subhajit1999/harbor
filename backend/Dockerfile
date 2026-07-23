@@ -2,6 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# ffmpeg backs the /stream endpoint's server-side remux (video-only +
+# audio-only DASH tracks -> one combined file) — stream-copy only, no
+# re-encode, so this doesn't need a build from source or extra codecs.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

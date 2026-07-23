@@ -1,13 +1,27 @@
+import logging
 import os
+import subprocess
 from typing import Optional
+from urllib.parse import quote
 
 import yt_dlp
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
+
+logger = logging.getLogger("harbor-resolver")
 
 app = FastAPI(title="harbor-resolver")
 
 API_KEY = os.environ.get("API_KEY")
+if not API_KEY:
+    logger.warning(
+        "API_KEY is not set — /resolve is running with no authentication at all. "
+        "Set API_KEY to require X-API-Key on every request."
+    )
+
+ALLOWED_HOSTS = ("youtube.com", "youtu.be", "instagram.com", "facebook.com", "fb.watch")
 
 
 class ResolveRequest(BaseModel):
@@ -36,12 +50,22 @@ class ResolveResponse(BaseModel):
     variants: list[MediaVariant]
 
 
-def _source_for(url: str) -> str:
-    if "youtube.com" in url or "youtu.be" in url:
+def _hostname(url: str) -> str:
+    from urllib.parse import urlparse
+
+    return (urlparse(url).hostname or "").lower()
+
+
+def _is_allowed_host(hostname: str) -> bool:
+    return any(hostname == h or hostname.endswith(f".{h}") for h in ALLOWED_HOSTS)
+
+
+def _source_for(hostname: str) -> str:
+    if hostname.endswith("youtube.com") or hostname.endswith("youtu.be"):
         return "youtube"
-    if "instagram.com" in url:
+    if hostname.endswith("instagram.com"):
         return "instagram"
-    if "facebook.com" in url or "fb.watch" in url:
+    if hostname.endswith("facebook.com") or hostname.endswith("fb.watch"):
         return "facebook"
     return "unknown"
 
@@ -53,7 +77,7 @@ def _best_audio_format(formats: list[dict]) -> Optional[dict]:
     return max(audio_only, key=lambda f: f.get("abr") or 0)
 
 
-def _build_variants(info: dict) -> list[MediaVariant]:
+def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
     formats = info.get("formats") or []
     variants: list[MediaVariant] = []
 
@@ -88,22 +112,43 @@ def _build_variants(info: dict) -> list[MediaVariant]:
                 )
             )
         elif has_video and not has_audio:
-            # Video-only adaptive stream — needs the best audio track muxed
-            # in after download (same path YouTube's 1080p+ already uses).
-            variants.append(
-                MediaVariant(
-                    id=f"v_{f.get('format_id')}",
-                    type="video",
-                    label=f.get("format_note") or f.get("resolution") or f.get("format_id", ""),
-                    container="mp4",
-                    codec=vcodec,
-                    bitrateKbps=int(bitrate) if bitrate else None,
-                    estimatedSizeBytes=int(size) if size else None,
-                    streamUrl=stream_url,
-                    audioStreamUrl=best_audio["url"] if best_audio else None,
-                    requiresMuxing=best_audio is not None,
+            # Video-only adaptive stream. If there's an audio track to pair
+            # it with, mux server-side via /stream and hand back a single
+            # combined URL — the client downloads one file, no local mux
+            # step, same as any other video variant from any other source.
+            if best_audio:
+                combined_url = (
+                    f"{base_url}stream?video={quote(stream_url, safe='')}"
+                    f"&audio={quote(best_audio['url'], safe='')}"
+                    f"&key={quote(API_KEY or '', safe='')}"
                 )
-            )
+                variants.append(
+                    MediaVariant(
+                        id=f"v_{f.get('format_id')}",
+                        type="video",
+                        label=f.get("format_note") or f.get("resolution") or f.get("format_id", ""),
+                        container="mp4",
+                        codec=vcodec,
+                        bitrateKbps=int(bitrate) if bitrate else None,
+                        estimatedSizeBytes=int(size) if size else None,
+                        streamUrl=combined_url,
+                    )
+                )
+            else:
+                # No audio track exists anywhere for this source — nothing
+                # to mux, offer the silent video as-is.
+                variants.append(
+                    MediaVariant(
+                        id=f"v_{f.get('format_id')}",
+                        type="video",
+                        label=f.get("format_note") or f.get("resolution") or f.get("format_id", ""),
+                        container="mp4",
+                        codec=vcodec,
+                        bitrateKbps=int(bitrate) if bitrate else None,
+                        estimatedSizeBytes=int(size) if size else None,
+                        streamUrl=stream_url,
+                    )
+                )
         elif has_audio and not has_video:
             variants.append(
                 MediaVariant(
@@ -141,9 +186,18 @@ def _build_variants(info: dict) -> list[MediaVariant]:
 
 
 @app.post("/resolve", response_model=ResolveResponse)
-def resolve(req: ResolveRequest, x_api_key: Optional[str] = Header(default=None)):
+def resolve(
+    req: ResolveRequest, request: Request, x_api_key: Optional[str] = Header(default=None)
+):
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+    hostname = _hostname(req.url)
+    if not hostname or not _is_allowed_host(hostname):
+        raise HTTPException(
+            status_code=400,
+            detail="Only youtube.com, youtu.be, instagram.com, facebook.com, and fb.watch links are supported.",
+        )
 
     ydl_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
     try:
@@ -151,8 +205,16 @@ def resolve(req: ResolveRequest, x_api_key: Optional[str] = Header(default=None)
             info = ydl.extract_info(req.url, download=False)
     except yt_dlp.utils.DownloadError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception:
+        logger.exception("Unexpected error resolving url")
+        raise HTTPException(status_code=500, detail="Failed to resolve this link.")
 
-    variants = _build_variants(info)
+    try:
+        variants = _build_variants(info, str(request.base_url))
+    except Exception:
+        logger.exception("Unexpected error building variants")
+        raise HTTPException(status_code=500, detail="Failed to resolve this link.")
+
     if not variants:
         raise HTTPException(status_code=422, detail="No downloadable media found for this URL.")
 
@@ -160,8 +222,45 @@ def resolve(req: ResolveRequest, x_api_key: Optional[str] = Header(default=None)
         title=info.get("title") or "Untitled",
         thumbnailUrl=info.get("thumbnail"),
         durationSeconds=int(info.get("duration") or 0),
-        source=_source_for(req.url),
+        source=_source_for(hostname),
         variants=variants,
+    )
+
+
+@app.get("/stream")
+def stream(video: str, audio: str, key: Optional[str] = None):
+    # Query param, not a header — the Dart-side download client does a
+    # plain GET with no custom headers, so this has to be checkable from
+    # the URL alone.
+    if API_KEY and key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+    # Stream-copy remux only (no re-encode) — both inputs are already
+    # MP4-container DASH segments, so this just repackages them into one
+    # container, cheap enough to do per-request even on modest hardware.
+    # frag_keyframe+empty_moov makes the output streamable (no seeking
+    # back to write the moov atom once the full file is known, which a
+    # piped stdout can't do).
+    cmd = [
+        "ffmpeg",
+        "-i", video,
+        "-i", audio,
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-c:v", "copy",
+        "-c:a", "copy",
+        "-movflags", "frag_keyframe+empty_moov",
+        "-f", "mp4",
+        "pipe:1",
+    ]
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+
+    def cleanup():
+        if process.poll() is None:
+            process.terminate()
+
+    return StreamingResponse(
+        process.stdout, media_type="video/mp4", background=BackgroundTask(cleanup)
     )
 
 
