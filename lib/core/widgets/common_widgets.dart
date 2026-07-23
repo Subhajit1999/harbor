@@ -92,38 +92,58 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withOpacity(0.08),
-              ),
-              child: Icon(icon, size: 34, color: AppColors.textSecondaryDark),
-            ),
-            const SizedBox(height: 20),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    color: AppColors.textPrimaryDark)),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondaryDark),
-            ),
-            if (action != null) ...[const SizedBox(height: 20), action!],
-          ],
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.accent.withOpacity(0.08),
+          ),
+          child: Icon(icon, size: 34, color: AppColors.textSecondaryDark),
         ),
-      ),
+        const SizedBox(height: 20),
+        Text(title,
+            style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+                color: AppColors.textPrimaryDark)),
+        const SizedBox(height: 8),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14, color: AppColors.textSecondaryDark),
+        ),
+        if (action != null) ...[const SizedBox(height: 20), action!],
+      ],
+    );
+
+    // Centers vertically when the available height is bounded (e.g. a
+    // tight Expanded — Import screen's recent links section) and scrolls
+    // instead of overflowing if it doesn't fit. When the height is
+    // unbounded (e.g. sitting directly inside a ListView, as on Home),
+    // ConstrainedBox(minHeight: constraints.maxHeight) would itself demand
+    // infinite height — just center it in its own padding instead, no
+    // scroll wrapper needed since there's no overflow risk there.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedHeight) {
+          return Padding(
+            padding: const EdgeInsets.all(32),
+            child: Center(child: content),
+          );
+        }
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
+            child: Center(child: content),
+          ),
+        );
+      },
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/settings_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/common_widgets.dart';
 import '../import_controller.dart';
@@ -26,7 +27,10 @@ class SaveDestinationSheet extends StatefulWidget {
 }
 
 class _SaveDestinationSheetState extends State<SaveDestinationSheet> {
-  SaveDestination _selected = SaveDestination.photos;
+  late SaveDestination _selected = () {
+    final remembered = Get.find<SettingsService>().saveDestination;
+    return remembered == SaveDestination.askEveryTime ? SaveDestination.photos : remembered;
+  }();
   bool _remember = false;
 
   @override
@@ -81,6 +85,9 @@ class _SaveDestinationSheetState extends State<SaveDestinationSheet> {
           PrimaryButton(
             label: 'Start Download',
             onPressed: () {
+              final settings = Get.find<SettingsService>();
+              settings.saveDestination =
+                  _remember ? _selected : SaveDestination.askEveryTime;
               Navigator.of(context).pop();
               controller.confirmAndEnqueue(_selected);
             },

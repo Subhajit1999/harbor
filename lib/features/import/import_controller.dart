@@ -55,6 +55,7 @@ class ImportController extends GetxController {
   bool isSupported(String url) => _resolverRegistry.isSupported(url);
 
   Future<void> analyze([String? overrideUrl]) async {
+    if (isAnalyzing.value) return;
     final url = (overrideUrl ?? linkController.text).trim();
     if (url.isEmpty) return;
 

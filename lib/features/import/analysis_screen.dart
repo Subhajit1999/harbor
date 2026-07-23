@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/services/settings_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/common_widgets.dart';
@@ -29,6 +31,20 @@ class AnalysisScreen extends GetView<ImportController> {
           );
         }
 
+        if (meta.videoVariants.isEmpty && meta.audioVariants.isEmpty) {
+          // Belt-and-suspenders: a resolver should always throw
+          // ResolverException instead of returning empty variants (that was
+          // exactly the Instagram bug — see instagram_resolver.dart), but if
+          // one ever does slip through, show this instead of a silent blank
+          // screen with no download affordance.
+          return const EmptyState(
+            icon: CupertinoIcons.exclamationmark_triangle,
+            title: 'Nothing downloadable found',
+            message: 'This link didn\'t yield a video or audio stream. '
+                'Double-check it\'s a public post and try again.',
+          );
+        }
+
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -46,7 +62,12 @@ class AnalysisScreen extends GetView<ImportController> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(meta.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            Text(
+              meta.title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -113,7 +134,12 @@ class _VariantTile extends GetView<ImportController> {
           accented: selected,
           onTap: () async {
             controller.selectVariant(variant);
-            await SaveDestinationSheet.show(context);
+            final remembered = Get.find<SettingsService>().saveDestination;
+            if (remembered != SaveDestination.askEveryTime) {
+              controller.confirmAndEnqueue(remembered);
+            } else {
+              await SaveDestinationSheet.show(context);
+            }
           },
           child: Row(
             children: [
