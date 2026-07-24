@@ -1,13 +1,13 @@
 import logging
 import os
 import subprocess
-import threading
+import tempfile
 from typing import Optional
 from urllib.parse import quote
 
 import yt_dlp
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 
@@ -294,10 +294,20 @@ def stream(
     # the source codec is already iOS-safe (cheap, no re-encode); transcode
     # to h264/aac when it isn't (e.g. Instagram/Facebook VP9 or Opus), so
     # every file this endpoint returns is guaranteed playable regardless of
-    # what the source offered. frag_keyframe+empty_moov makes the output
-    # streamable (no seeking back to write the moov atom once the full
-    # file is known, which a piped stdout can't do).
-    cmd = ["ffmpeg", "-i", video]
+    # what the source offered.
+    #
+    # Written to a real temp file rather than piped to stdout: piping
+    # requires `-movflags frag_keyframe+empty_moov` (no seeking back to
+    # finalize a normal `moov` atom on a non-seekable pipe), and while
+    # AVPlayer/video_player play a fragmented mp4 fine, iOS PhotoKit's
+    # `PHAssetChangeRequest.creationRequestForAssetFromVideo` is strict
+    # about resource validity and rejects it (PHPhotosError 3302). Writing
+    # to a file lets ffmpeg finalize a standard, fully-seekable mp4 with
+    # `+faststart` that both AVPlayer and PhotoKit accept.
+    fd, output_path = tempfile.mkstemp(suffix=".mp4")
+    os.close(fd)
+
+    cmd = ["ffmpeg", "-y", "-i", video]
     if audio:
         cmd += ["-i", audio, "-map", "0:v:0", "-map", "1:a:0"]
 
@@ -311,52 +321,25 @@ def stream(
     else:
         cmd += ["-c:a", "copy"]
 
-    cmd += [
-        "-movflags", "frag_keyframe+empty_moov",
-        "-f", "mp4",
-        "pipe:1",
-    ]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd += ["-movflags", "+faststart", "-f", "mp4", output_path]
 
-    # Drain stderr continuously in a background thread rather than
-    # discarding it — ffmpeg's stderr pipe has a limited OS buffer (~64KB
-    # on Linux); if nothing reads it while a long transcode is running, it
-    # fills up and blocks ffmpeg, stalling stdout too. Keeping the last few
-    # lines also means a failure is actually diagnosable instead of silent.
-    stderr_lines: list[str] = []
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-    def _drain_stderr():
-        for line in iter(process.stderr.readline, b""):
-            stderr_lines.append(line.decode("utf-8", errors="replace"))
-
-    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
-    stderr_thread.start()
-
-    # Read the first chunk synchronously before responding at all. If
-    # ffmpeg fails immediately (bad codec, source URL rejected the
-    # request, etc.) this is empty — without this check, the endpoint
-    # used to return a 200 with a 0-byte body, which the client silently
-    # saved as if the download had succeeded.
-    first_chunk = process.stdout.read(65536)
-    if not first_chunk:
-        process.wait(timeout=10)
-        stderr_thread.join(timeout=2)
-        detail = "".join(stderr_lines[-40:]).strip() or f"ffmpeg exited with code {process.returncode}"
-        logger.error("ffmpeg produced no output for video=%s audio=%s: %s", video, audio, detail)
+    if proc.returncode != 0 or not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+        detail = proc.stdout.decode("utf-8", errors="replace")[-2000:].strip()
+        logger.error(
+            "ffmpeg failed (exit %s) for video=%s audio=%s: %s",
+            proc.returncode, video, audio, detail or "(no output)",
+        )
+        if os.path.exists(output_path):
+            os.remove(output_path)
         raise HTTPException(status_code=502, detail="Failed to prepare this file for playback.")
 
-    def generate():
-        yield first_chunk
-        for chunk in iter(lambda: process.stdout.read(65536), b""):
-            yield chunk
-
     def cleanup():
-        if process.poll() is None:
-            process.terminate()
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
-    return StreamingResponse(
-        generate(), media_type="video/mp4", background=BackgroundTask(cleanup)
-    )
+    return FileResponse(output_path, media_type="video/mp4", background=BackgroundTask(cleanup))
 
 
 @app.get("/health")
