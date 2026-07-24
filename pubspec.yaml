@@ -51,7 +51,6 @@ dependencies:
   logger: ^2.3.0
   shared_preferences: ^2.2.3
   flutter_dotenv: ^6.0.1
-  ffmpeg_kit_flutter_min_gpl: ^6.0.3
   # Note: the Share Extension bridge is hand-rolled (native App Group +
   # MethodChannel, see ios/Runner/ShareChannelHandler.swift) rather than
   # via a third-party plugin — see ios/SETUP.md for why.

@@ -77,6 +77,14 @@ def _best_audio_format(formats: list[dict]) -> Optional[dict]:
     return max(audio_only, key=lambda f: f.get("abr") or 0)
 
 
+def _is_ios_compatible(vcodec: Optional[str]) -> bool:
+    if not vcodec or vcodec in ("none", ""):
+        return True
+    c = vcodec.lower()
+    if c.startswith("vp09") or c.startswith("vp9") or c.startswith("av01") or c.startswith("av1"):
+        return False
+    return True
+
 def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
     formats = info.get("formats") or []
     variants: list[MediaVariant] = []
@@ -89,6 +97,9 @@ def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
         acodec = f.get("acodec")
         stream_url = f.get("url")
         if not stream_url:
+            continue
+
+        if not _is_ios_compatible(vcodec):
             continue
 
         has_video = vcodec not in (None, "none")
