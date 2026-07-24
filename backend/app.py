@@ -77,13 +77,37 @@ def _best_audio_format(formats: list[dict]) -> Optional[dict]:
     return max(audio_only, key=lambda f: f.get("abr") or 0)
 
 
-def _is_ios_compatible(vcodec: Optional[str]) -> bool:
+def _needs_video_transcode(vcodec: Optional[str]) -> bool:
     if not vcodec or vcodec in ("none", ""):
-        return True
-    c = vcodec.lower()
-    if c.startswith("vp09") or c.startswith("vp9") or c.startswith("av01") or c.startswith("av1"):
         return False
-    return True
+    c = vcodec.lower()
+    return c.startswith("vp09") or c.startswith("vp9") or c.startswith("av01") or c.startswith("av1")
+
+
+def _needs_audio_transcode(acodec: Optional[str]) -> bool:
+    if not acodec or acodec in ("none", ""):
+        return False
+    c = acodec.lower()
+    return not (c.startswith("mp4a") or c.startswith("aac"))
+
+
+def _stream_url(
+    base_url: str,
+    video_url: str,
+    vcodec: Optional[str],
+    audio_url: Optional[str] = None,
+    acodec: Optional[str] = None,
+) -> str:
+    url = f"{base_url}stream?video={quote(video_url, safe='')}"
+    if audio_url:
+        url += f"&audio={quote(audio_url, safe='')}"
+    if vcodec:
+        url += f"&vcodec={quote(vcodec, safe='')}"
+    if acodec:
+        url += f"&acodec={quote(acodec, safe='')}"
+    url += f"&key={quote(API_KEY or '', safe='')}"
+    return url
+
 
 def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
     formats = info.get("formats") or []
@@ -99,9 +123,6 @@ def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
         if not stream_url:
             continue
 
-        if not _is_ios_compatible(vcodec):
-            continue
-
         has_video = vcodec not in (None, "none")
         has_audio = acodec not in (None, "none")
 
@@ -109,7 +130,17 @@ def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
         bitrate = f.get("tbr") or f.get("vbr") or f.get("abr")
 
         if has_video and has_audio:
-            # Muxed — simplest case, downloads and plays as-is.
+            # Muxed single-file format — both tracks already in one
+            # container. Still route through /stream when the codec isn't
+            # iOS-safe (e.g. Instagram's native VP9/Opus mp4s) so the
+            # client always gets a playable h264/aac file; otherwise serve
+            # the raw URL, no server CPU spent.
+            needs_transcode = _needs_video_transcode(vcodec) or _needs_audio_transcode(acodec)
+            final_url = (
+                _stream_url(base_url, stream_url, vcodec, acodec=acodec)
+                if needs_transcode
+                else stream_url
+            )
             variants.append(
                 MediaVariant(
                     id=f"v_{f.get('format_id')}",
@@ -119,19 +150,18 @@ def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
                     codec=vcodec,
                     bitrateKbps=int(bitrate) if bitrate else None,
                     estimatedSizeBytes=int(size) if size else None,
-                    streamUrl=stream_url,
+                    streamUrl=final_url,
                 )
             )
         elif has_video and not has_audio:
             # Video-only adaptive stream. If there's an audio track to pair
-            # it with, mux server-side via /stream and hand back a single
-            # combined URL — the client downloads one file, no local mux
-            # step, same as any other video variant from any other source.
+            # it with, mux (and transcode if needed) server-side via
+            # /stream and hand back a single combined URL — the client
+            # downloads one file, no local mux step, same as any other
+            # video variant from any other source.
             if best_audio:
-                combined_url = (
-                    f"{base_url}stream?video={quote(stream_url, safe='')}"
-                    f"&audio={quote(best_audio['url'], safe='')}"
-                    f"&key={quote(API_KEY or '', safe='')}"
+                combined_url = _stream_url(
+                    base_url, stream_url, vcodec, audio_url=best_audio["url"], acodec=acodec
                 )
                 variants.append(
                     MediaVariant(
@@ -147,7 +177,12 @@ def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
                 )
             else:
                 # No audio track exists anywhere for this source — nothing
-                # to mux, offer the silent video as-is.
+                # to mux, but still transcode the video alone if needed.
+                final_url = (
+                    _stream_url(base_url, stream_url, vcodec)
+                    if _needs_video_transcode(vcodec)
+                    else stream_url
+                )
                 variants.append(
                     MediaVariant(
                         id=f"v_{f.get('format_id')}",
@@ -157,7 +192,7 @@ def _build_variants(info: dict, base_url: str) -> list[MediaVariant]:
                         codec=vcodec,
                         bitrateKbps=int(bitrate) if bitrate else None,
                         estimatedSizeBytes=int(size) if size else None,
-                        streamUrl=stream_url,
+                        streamUrl=final_url,
                     )
                 )
         elif has_audio and not has_video:
@@ -239,27 +274,43 @@ def resolve(
 
 
 @app.get("/stream")
-def stream(video: str, audio: str, key: Optional[str] = None):
+def stream(
+    video: str,
+    audio: Optional[str] = None,
+    vcodec: Optional[str] = None,
+    acodec: Optional[str] = None,
+    key: Optional[str] = None,
+):
     # Query param, not a header — the Dart-side download client does a
     # plain GET with no custom headers, so this has to be checkable from
     # the URL alone.
     if API_KEY and key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
-    # Stream-copy remux only (no re-encode) — both inputs are already
-    # MP4-container DASH segments, so this just repackages them into one
-    # container, cheap enough to do per-request even on modest hardware.
-    # frag_keyframe+empty_moov makes the output streamable (no seeking
-    # back to write the moov atom once the full file is known, which a
-    # piped stdout can't do).
-    cmd = [
-        "ffmpeg",
-        "-i", video,
-        "-i", audio,
-        "-map", "0:v:0",
-        "-map", "1:a:0",
-        "-c:v", "copy",
-        "-c:a", "copy",
+    # Merge pattern from
+    # https://www.mux.com/articles/merge-audio-and-video-files-with-ffmpeg —
+    # one or two inputs mapped into a single mp4 output. Stream-copy when
+    # the source codec is already iOS-safe (cheap, no re-encode); transcode
+    # to h264/aac when it isn't (e.g. Instagram/Facebook VP9 or Opus), so
+    # every file this endpoint returns is guaranteed playable regardless of
+    # what the source offered. frag_keyframe+empty_moov makes the output
+    # streamable (no seeking back to write the moov atom once the full
+    # file is known, which a piped stdout can't do).
+    cmd = ["ffmpeg", "-i", video]
+    if audio:
+        cmd += ["-i", audio, "-map", "0:v:0", "-map", "1:a:0"]
+
+    if _needs_video_transcode(vcodec):
+        cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p"]
+    else:
+        cmd += ["-c:v", "copy"]
+
+    if _needs_audio_transcode(acodec):
+        cmd += ["-c:a", "aac", "-b:a", "128k"]
+    else:
+        cmd += ["-c:a", "copy"]
+
+    cmd += [
         "-movflags", "frag_keyframe+empty_moov",
         "-f", "mp4",
         "pipe:1",
