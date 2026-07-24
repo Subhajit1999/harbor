@@ -2,9 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# ffmpeg backs the /stream endpoint's server-side remux (video-only +
-# audio-only DASH tracks -> one combined file) — stream-copy only, no
-# re-encode, so this doesn't need a build from source or extra codecs.
+# ffmpeg backs the /stream endpoint's server-side remux/mux and, when the
+# source codec isn't iOS-safe (VP9/AV1 video, Opus audio), a real h264/aac
+# transcode via libx264 — Debian's ffmpeg package ships libx264 built in,
+# so no build-from-source needed.
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 

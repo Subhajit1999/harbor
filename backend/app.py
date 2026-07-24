@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import threading
 from typing import Optional
 from urllib.parse import quote
 
@@ -315,14 +316,46 @@ def stream(
         "-f", "mp4",
         "pipe:1",
     ]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    # Drain stderr continuously in a background thread rather than
+    # discarding it — ffmpeg's stderr pipe has a limited OS buffer (~64KB
+    # on Linux); if nothing reads it while a long transcode is running, it
+    # fills up and blocks ffmpeg, stalling stdout too. Keeping the last few
+    # lines also means a failure is actually diagnosable instead of silent.
+    stderr_lines: list[str] = []
+
+    def _drain_stderr():
+        for line in iter(process.stderr.readline, b""):
+            stderr_lines.append(line.decode("utf-8", errors="replace"))
+
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    stderr_thread.start()
+
+    # Read the first chunk synchronously before responding at all. If
+    # ffmpeg fails immediately (bad codec, source URL rejected the
+    # request, etc.) this is empty — without this check, the endpoint
+    # used to return a 200 with a 0-byte body, which the client silently
+    # saved as if the download had succeeded.
+    first_chunk = process.stdout.read(65536)
+    if not first_chunk:
+        process.wait(timeout=10)
+        stderr_thread.join(timeout=2)
+        detail = "".join(stderr_lines[-40:]).strip() or f"ffmpeg exited with code {process.returncode}"
+        logger.error("ffmpeg produced no output for video=%s audio=%s: %s", video, audio, detail)
+        raise HTTPException(status_code=502, detail="Failed to prepare this file for playback.")
+
+    def generate():
+        yield first_chunk
+        for chunk in iter(lambda: process.stdout.read(65536), b""):
+            yield chunk
 
     def cleanup():
         if process.poll() is None:
             process.terminate()
 
     return StreamingResponse(
-        process.stdout, media_type="video/mp4", background=BackgroundTask(cleanup)
+        generate(), media_type="video/mp4", background=BackgroundTask(cleanup)
     )
 
 
