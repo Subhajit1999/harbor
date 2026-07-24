@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/router/app_routes.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/utils/app_logger.dart';
@@ -160,12 +162,23 @@ class ImportController extends GetxController {
       return;
     }
 
-    // Reset flow state and drop back to Home; the Download Queue (reachable
-    // from Home's "Continue Download" section) shows live progress.
+    // Reset flow state and drop back to Home; switch to Downloads tab (index 2)
     linkController.clear();
     metadata.value = null;
     selectedVariant.value = null;
+    
     Get.offAllNamed(AppRoutes.home);
-    Get.snackbar('Download started', meta.title, snackPosition: SnackPosition.BOTTOM);
+    // Note: The download queue is accessible from Home, so dropping them at Home is sufficient.
+    
+    Get.snackbar(
+      'Added to Downloads',
+      meta.title,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: AppColors.accentDark,
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 3),
+      icon: const Icon(CupertinoIcons.cloud_download, color: Colors.white),
+    );
   }
 }

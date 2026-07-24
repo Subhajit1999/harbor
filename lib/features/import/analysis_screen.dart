@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/settings_service.dart';
@@ -133,6 +134,7 @@ class _VariantTile extends GetView<ImportController> {
         child: GlassCard(
           accented: selected,
           onTap: () async {
+            HapticFeedback.selectionClick();
             controller.selectVariant(variant);
             final remembered = Get.find<SettingsService>().saveDestination;
             if (remembered != SaveDestination.askEveryTime) {
@@ -172,7 +174,9 @@ class _VariantTile extends GetView<ImportController> {
                         if (variant.codec != null) _VariantTag(text: variant.codec!),
                         if (variant.bitrateKbps != null) _VariantTag(text: '${variant.bitrateKbps} kbps'),
                         if (variant.estimatedSizeBytes != null)
-                          _VariantTag(text: Formatters.bytes(variant.estimatedSizeBytes!)),
+                          _VariantTag(text: Formatters.bytes(variant.estimatedSizeBytes!))
+                        else
+                          const _VariantTag(text: 'Unknown Size'),
                       ],
                     ),
                   ],

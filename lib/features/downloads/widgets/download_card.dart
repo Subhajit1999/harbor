@@ -105,12 +105,15 @@ class DownloadCard extends StatelessWidget {
   String _statusLine(DownloadEntity d) {
     switch (d.status) {
       case DownloadStatus.downloading:
-        return '${Formatters.bytes(d.downloadedBytes)} / ${Formatters.bytes(d.totalBytes)} · '
+        final totalStr = d.totalBytes > 0 ? Formatters.bytes(d.totalBytes) : 'Unknown Size';
+        final receivedStr = Formatters.bytes(d.downloadedBytes);
+        return '$receivedStr / $totalStr · '
             '${Formatters.speed(d.speedBytesPerSec)} · ETA ${Formatters.eta(d.eta)}';
       case DownloadStatus.queued:
         return 'Queued';
       case DownloadStatus.paused:
-        return 'Paused · ${Formatters.bytes(d.downloadedBytes)} / ${Formatters.bytes(d.totalBytes)}';
+        final totalStr = d.totalBytes > 0 ? Formatters.bytes(d.totalBytes) : 'Unknown Size';
+        return 'Paused · ${Formatters.bytes(d.downloadedBytes)} / $totalStr';
       case DownloadStatus.completed:
         return 'Completed';
       case DownloadStatus.failed:
@@ -118,7 +121,7 @@ class DownloadCard extends StatelessWidget {
       case DownloadStatus.canceled:
         return 'Canceled';
       case DownloadStatus.processing:
-        return 'Processing…';
+        return 'Optimizing media... (Muxing/Transcoding)';
     }
   }
 

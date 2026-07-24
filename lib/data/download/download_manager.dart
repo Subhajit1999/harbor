@@ -10,7 +10,6 @@ import '../../core/utils/app_logger.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/repositories/download_repository.dart';
 import 'mux_service.dart';
-import 'transcode_service.dart';
 
 const _tag = 'DownloadManager';
 
@@ -22,7 +21,6 @@ const _tag = 'DownloadManager';
 class DownloadManager {
   final DownloadRepository _repository;
   final MuxService _muxService;
-  final TranscodeService _transcodeService;
   final Dio _dio;
   final SettingsService? _settingsService;
   final int _fallbackMaxConcurrent;
@@ -38,13 +36,11 @@ class DownloadManager {
   DownloadManager(
     this._repository, {
     MuxService? muxService,
-    TranscodeService? transcodeService,
     Dio? dio,
     SettingsService? settingsService,
     Connectivity? connectivity,
     int maxConcurrent = AppConstants.defaultMaxConcurrentDownloads,
   })  : _muxService = muxService ?? MuxService(),
-        _transcodeService = transcodeService ?? TranscodeService(),
         _dio = dio ?? Dio(),
         _settingsService = settingsService,
         _fallbackMaxConcurrent = maxConcurrent,
@@ -227,14 +223,6 @@ class DownloadManager {
         await _deleteQuietly(videoPath);
       }
 
-      // Check for transcoding requirement
-      if (entity.type == MediaType.video) {
-        entity = await _repository.getById(id);
-        if (entity == null) return;
-        await _repository.save(entity.copyWith(status: DownloadStatus.processing));
-        finalPath = await _transcodeService.ensureIosCompatibility(finalPath);
-      }
-
       entity = await _repository.getById(id);
       if (entity == null) return;
       await _repository.save(entity.copyWith(
@@ -333,10 +321,121 @@ class DownloadManager {
     double progressWeight = 1.0,
     double progressOffset = 0.0,
   }) async {
+    int totalBytes = 0;
+    bool supportsRange = false;
+    try {
+      final head = await _dio.head<void>(url, cancelToken: cancelToken);
+      final cl = head.headers.value('content-length');
+      if (cl != null) totalBytes = int.tryParse(cl) ?? 0;
+      final acceptRanges = head.headers.value('accept-ranges');
+      supportsRange = acceptRanges == 'bytes' && totalBytes > 0;
+    } catch (e) {
+      AppLogger.w(_tag, 'HEAD request failed, falling back: $e');
+    }
+
+    if (totalBytes > 0) {
+      final entity = await _repository.getById(id);
+      if (entity != null) {
+        await _repository.save(entity.copyWith(totalBytes: totalBytes));
+      }
+    }
+
+    if (!supportsRange || totalBytes < 4 * 1024 * 1024) {
+      await _downloadChunk(
+        url: url,
+        savePath: savePath,
+        id: id,
+        cancelToken: cancelToken,
+        progressWeight: progressWeight,
+        progressOffset: progressOffset,
+        totalExpected: totalBytes,
+        rangeHeader: null,
+      );
+      return;
+    }
+
+    const chunksCount = 4;
+    final chunkSize = totalBytes ~/ chunksCount;
+    final futures = <Future<void>>[];
+    final partPaths = <String>[];
+    
+    int totalReceived = 0;
+
+    for (var i = 0; i < chunksCount; i++) {
+      final start = i * chunkSize;
+      final end = (i == chunksCount - 1) ? totalBytes - 1 : start + chunkSize - 1;
+      final partPath = '$savePath.part$i';
+      partPaths.add(partPath);
+
+      futures.add(() async {
+        await _downloadChunk(
+          url: url,
+          savePath: partPath,
+          id: id,
+          cancelToken: cancelToken,
+          progressWeight: progressWeight,
+          progressOffset: progressOffset,
+          totalExpected: totalBytes,
+          rangeHeader: 'bytes=$start-$end',
+          onProgress: (bytes) {
+            totalReceived += bytes;
+            _reportProgress(
+              id: id,
+              effectiveReceived: totalReceived,
+              effectiveTotal: totalBytes,
+              progressWeight: progressWeight,
+              progressOffset: progressOffset,
+            );
+          },
+        );
+      }());
+    }
+
+    await Future.wait(futures);
+
+    final finalFile = File(savePath);
+    final raf = await finalFile.open(mode: FileMode.write);
+    try {
+      for (final part in partPaths) {
+        final partFile = File(part);
+        await raf.writeFrom(await partFile.readAsBytes());
+        await partFile.delete();
+      }
+    } finally {
+      await raf.close();
+    }
+  }
+
+  Future<void> _downloadChunk({
+    required String url,
+    required String savePath,
+    required String id,
+    required CancelToken cancelToken,
+    required double progressWeight,
+    required double progressOffset,
+    required int totalExpected,
+    String? rangeHeader,
+    void Function(int bytes)? onProgress,
+  }) async {
     final file = File(savePath);
     var existingBytes = 0;
     if (await file.exists()) {
       existingBytes = await file.length();
+    }
+
+    String? actualRange = rangeHeader;
+    if (existingBytes > 0) {
+      if (rangeHeader != null) {
+        final parts = rangeHeader.replaceAll('bytes=', '').split('-');
+        final start = int.parse(parts[0]) + existingBytes;
+        actualRange = 'bytes=$start-${parts[1]}';
+        if (start > int.parse(parts[1])) {
+          if (onProgress != null) onProgress(existingBytes);
+          return;
+        }
+      } else {
+        actualRange = 'bytes=$existingBytes-';
+      }
     }
 
     final response = await _dio.get<ResponseBody>(
@@ -344,32 +443,38 @@ class DownloadManager {
       cancelToken: cancelToken,
       options: Options(
         responseType: ResponseType.stream,
-        headers: existingBytes > 0 ? {'range': 'bytes=$existingBytes-'} : null,
+        headers: actualRange != null ? {'range': actualRange} : null,
       ),
     );
 
-    // A 200 (not 206 Partial Content) means the server ignored our Range
-    // request — start over rather than appending onto a mismatched offset.
     final serverHonoredRange = response.statusCode == 206;
     final effectiveExisting = serverHonoredRange ? existingBytes : 0;
+    if (onProgress != null && effectiveExisting > 0) {
+      onProgress(effectiveExisting);
+    }
+    
     final raf = await file.open(mode: serverHonoredRange ? FileMode.append : FileMode.write);
-
+    
     final contentLengthHeader = response.data!.headers['content-length']?.first;
     final chunkTotal = int.tryParse(contentLengthHeader ?? '') ?? 0;
-    final effectiveTotal = effectiveExisting + chunkTotal;
+    final effectiveTotal = totalExpected > 0 ? totalExpected : effectiveExisting + chunkTotal;
 
     var received = 0;
     try {
       await for (final chunk in response.data!.stream) {
         await raf.writeFrom(chunk);
         received += chunk.length;
-        await _reportProgress(
-          id: id,
-          effectiveReceived: effectiveExisting + received,
-          effectiveTotal: effectiveTotal,
-          progressWeight: progressWeight,
-          progressOffset: progressOffset,
-        );
+        if (onProgress != null) {
+          onProgress(chunk.length);
+        } else {
+          await _reportProgress(
+            id: id,
+            effectiveReceived: effectiveExisting + received,
+            effectiveTotal: effectiveTotal,
+            progressWeight: progressWeight,
+            progressOffset: progressOffset,
+          );
+        }
       }
     } finally {
       await raf.close();
