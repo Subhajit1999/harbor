@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/media_save_service.dart';
+import '../../core/utils/error_messages.dart';
 import '../../data/download/download_manager.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/entities/media_entity.dart';
@@ -71,6 +72,12 @@ class DownloadQueueController extends GetxController {
         return;
       }
 
+      // Distinct from DownloadStatus.processing (native mux/extraction) —
+      // this is the "moving to its Photos/Files destination" phase, so the
+      // status line can say something accurate instead of a generic
+      // "processing" that would otherwise cover both.
+      await _downloadRepository.save(download.copyWith(status: DownloadStatus.saving));
+
       final fileName = '${download.mediaTitle.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')}'
           '.${download.format}';
 
@@ -110,14 +117,22 @@ class DownloadQueueController extends GetxController {
       // Only mark indexed now that the file is actually saved and the
       // library entry exists — marking it earlier meant a save failure
       // could make a completed download silently vanish with no retry path.
-      await _downloadRepository.save(download.copyWith(indexed: true, clearErrorMessage: true));
+      await _downloadRepository.save(download.copyWith(
+        status: DownloadStatus.completed,
+        indexed: true,
+        clearErrorMessage: true,
+        savedFilePath: finalPath,
+      ));
     } catch (e) {
       // Indexing failure shouldn't crash the queue; the download itself
       // succeeded. Surface it via errorMessage so it's visible in the
       // queue instead of silently disappearing; `indexed` stays false so
-      // it's retried on the next app session.
+      // it's retried on the next app session. Revert status back to
+      // completed too — it was flipped to `saving` above, and getting
+      // stuck there would show an indeterminate spinner forever.
       await _downloadRepository.save(download.copyWith(
-        errorMessage: 'Saved file could not be added to your library: $e',
+        status: DownloadStatus.completed,
+        errorMessage: 'Couldn\'t save to your library: ${friendlyMessage(e)}',
       ));
     } finally {
       _indexing.remove(download.id);

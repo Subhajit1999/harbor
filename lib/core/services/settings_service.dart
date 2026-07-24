@@ -1,6 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
-import '../constants/env.dart';
 
 /// Thin typed wrapper over SharedPreferences for the handful of user
 /// preferences Harbor has (Settings screen). Deliberately not using Isar for
@@ -51,14 +50,6 @@ class SettingsService {
 
   String get themeMode => _prefs.getString(AppConstants.prefThemeMode) ?? 'dark';
   set themeMode(String value) => _prefs.setString(AppConstants.prefThemeMode, value);
-
-  // Optional self-hosted yt-dlp resolver backend (see backend/) — not user
-  // configurable, always the compile-time default baked in via
-  // `--dart-define-from-file=.env` (see lib/core/constants/env.dart).
-  // Empty (no .env at build time) means the app relies solely on its
-  // built-in scrapers.
-  String get resolverServerUrl => Env.resolverServerUrl;
-  String get resolverApiKey => Env.resolverApiKey;
 
   static const _recentLinksKey = 'importScreen.recentLinks';
   static const _maxRecentLinks = 10;

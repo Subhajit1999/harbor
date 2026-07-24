@@ -25,6 +25,11 @@ class DownloadEntity extends Equatable {
   final String? errorMessage;
   final SaveDestination saveDestination;
   final bool indexed;
+  // Final on-disk path once the file has been moved to its save
+  // destination (Photos import + Harbor's own Documents/Files copy) —
+  // set by DownloadQueueController alongside `indexed`. Null until then,
+  // and for anything downloaded before this field existed.
+  final String? savedFilePath;
 
   const DownloadEntity({
     required this.id,
@@ -49,6 +54,7 @@ class DownloadEntity extends Equatable {
     this.errorMessage,
     required this.saveDestination,
     this.indexed = false,
+    this.savedFilePath,
   });
 
   double get progress => totalBytes == 0 ? 0 : downloadedBytes / totalBytes;
@@ -64,6 +70,7 @@ class DownloadEntity extends Equatable {
     bool clearErrorMessage = false,
     int? totalBytes,
     bool? indexed,
+    String? savedFilePath,
   }) {
     return DownloadEntity(
       id: id,
@@ -87,6 +94,7 @@ class DownloadEntity extends Equatable {
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       saveDestination: saveDestination,
       indexed: indexed ?? this.indexed,
+      savedFilePath: savedFilePath ?? this.savedFilePath,
     );
   }
 
@@ -114,5 +122,6 @@ class DownloadEntity extends Equatable {
         errorMessage,
         saveDestination,
         indexed,
+        savedFilePath,
       ];
 }

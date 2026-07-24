@@ -42,6 +42,7 @@ class DownloadModel {
   late SaveDestination saveDestination;
 
   bool indexed = false;
+  String? savedFilePath;
 
   DownloadEntity toEntity() => DownloadEntity(
         id: id,
@@ -66,6 +67,7 @@ class DownloadModel {
         errorMessage: errorMessage,
         saveDestination: saveDestination,
         indexed: indexed,
+        savedFilePath: savedFilePath,
       );
 
   static DownloadModel fromEntity(DownloadEntity e) => DownloadModel()
@@ -90,5 +92,6 @@ class DownloadModel {
     ..retryCount = e.retryCount
     ..errorMessage = e.errorMessage
     ..saveDestination = e.saveDestination
-    ..indexed = e.indexed;
+    ..indexed = e.indexed
+    ..savedFilePath = e.savedFilePath;
 }

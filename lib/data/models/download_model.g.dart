@@ -88,44 +88,49 @@ const DownloadModelSchema = CollectionSchema(
       type: IsarType.byte,
       enumMap: _DownloadModelsaveDestinationEnumValueMap,
     ),
-    r'sourceUrl': PropertySchema(
+    r'savedFilePath': PropertySchema(
       id: 14,
+      name: r'savedFilePath',
+      type: IsarType.string,
+    ),
+    r'sourceUrl': PropertySchema(
+      id: 15,
       name: r'sourceUrl',
       type: IsarType.string,
     ),
     r'speedBytesPerSec': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'speedBytesPerSec',
       type: IsarType.double,
     ),
     r'startedAt': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'startedAt',
       type: IsarType.dateTime,
     ),
     r'status': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'status',
       type: IsarType.byte,
       enumMap: _DownloadModelstatusEnumValueMap,
     ),
     r'streamUrl': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'streamUrl',
       type: IsarType.string,
     ),
     r'thumbnailUrl': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'thumbnailUrl',
       type: IsarType.string,
     ),
     r'totalBytes': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'totalBytes',
       type: IsarType.long,
     ),
     r'type': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'type',
       type: IsarType.byte,
       enumMap: _DownloadModeltypeEnumValueMap,
@@ -199,6 +204,12 @@ int _downloadModelEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.savedFilePath;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.sourceUrl.length * 3;
   bytesCount += 3 + object.streamUrl.length * 3;
   {
@@ -230,14 +241,15 @@ void _downloadModelSerialize(
   writer.writeString(offsets[11], object.resolution);
   writer.writeLong(offsets[12], object.retryCount);
   writer.writeByte(offsets[13], object.saveDestination.index);
-  writer.writeString(offsets[14], object.sourceUrl);
-  writer.writeDouble(offsets[15], object.speedBytesPerSec);
-  writer.writeDateTime(offsets[16], object.startedAt);
-  writer.writeByte(offsets[17], object.status.index);
-  writer.writeString(offsets[18], object.streamUrl);
-  writer.writeString(offsets[19], object.thumbnailUrl);
-  writer.writeLong(offsets[20], object.totalBytes);
-  writer.writeByte(offsets[21], object.type.index);
+  writer.writeString(offsets[14], object.savedFilePath);
+  writer.writeString(offsets[15], object.sourceUrl);
+  writer.writeDouble(offsets[16], object.speedBytesPerSec);
+  writer.writeDateTime(offsets[17], object.startedAt);
+  writer.writeByte(offsets[18], object.status.index);
+  writer.writeString(offsets[19], object.streamUrl);
+  writer.writeString(offsets[20], object.thumbnailUrl);
+  writer.writeLong(offsets[21], object.totalBytes);
+  writer.writeByte(offsets[22], object.type.index);
 }
 
 DownloadModel _downloadModelDeserialize(
@@ -264,17 +276,18 @@ DownloadModel _downloadModelDeserialize(
   object.saveDestination = _DownloadModelsaveDestinationValueEnumMap[
           reader.readByteOrNull(offsets[13])] ??
       SaveDestination.photos;
-  object.sourceUrl = reader.readString(offsets[14]);
-  object.speedBytesPerSec = reader.readDouble(offsets[15]);
-  object.startedAt = reader.readDateTime(offsets[16]);
+  object.savedFilePath = reader.readStringOrNull(offsets[14]);
+  object.sourceUrl = reader.readString(offsets[15]);
+  object.speedBytesPerSec = reader.readDouble(offsets[16]);
+  object.startedAt = reader.readDateTime(offsets[17]);
   object.status =
-      _DownloadModelstatusValueEnumMap[reader.readByteOrNull(offsets[17])] ??
+      _DownloadModelstatusValueEnumMap[reader.readByteOrNull(offsets[18])] ??
           DownloadStatus.queued;
-  object.streamUrl = reader.readString(offsets[18]);
-  object.thumbnailUrl = reader.readStringOrNull(offsets[19]);
-  object.totalBytes = reader.readLong(offsets[20]);
+  object.streamUrl = reader.readString(offsets[19]);
+  object.thumbnailUrl = reader.readStringOrNull(offsets[20]);
+  object.totalBytes = reader.readLong(offsets[21]);
   object.type =
-      _DownloadModeltypeValueEnumMap[reader.readByteOrNull(offsets[21])] ??
+      _DownloadModeltypeValueEnumMap[reader.readByteOrNull(offsets[22])] ??
           MediaType.video;
   return object;
 }
@@ -317,21 +330,23 @@ P _downloadModelDeserializeProp<P>(
               reader.readByteOrNull(offset)] ??
           SaveDestination.photos) as P;
     case 14:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 16:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 17:
+      return (reader.readDateTime(offset)) as P;
+    case 18:
       return (_DownloadModelstatusValueEnumMap[reader.readByteOrNull(offset)] ??
           DownloadStatus.queued) as P;
-    case 18:
-      return (reader.readString(offset)) as P;
     case 19:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 20:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
+      return (reader.readLong(offset)) as P;
+    case 22:
       return (_DownloadModeltypeValueEnumMap[reader.readByteOrNull(offset)] ??
           MediaType.video) as P;
     default:
@@ -357,6 +372,7 @@ const _DownloadModelstatusEnumValueMap = {
   'failed': 4,
   'canceled': 5,
   'processing': 6,
+  'saving': 7,
 };
 const _DownloadModelstatusValueEnumMap = {
   0: DownloadStatus.queued,
@@ -366,6 +382,7 @@ const _DownloadModelstatusValueEnumMap = {
   4: DownloadStatus.failed,
   5: DownloadStatus.canceled,
   6: DownloadStatus.processing,
+  7: DownloadStatus.saving,
 };
 const _DownloadModeltypeEnumValueMap = {
   'video': 0,
@@ -1987,6 +2004,160 @@ extension DownloadModelQueryFilter
   }
 
   QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'savedFilePath',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'savedFilePath',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'savedFilePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'savedFilePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'savedFilePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'savedFilePath',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'savedFilePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'savedFilePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'savedFilePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'savedFilePath',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'savedFilePath',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
+      savedFilePathIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'savedFilePath',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterFilterCondition>
       sourceUrlEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2894,6 +3065,20 @@ extension DownloadModelQuerySortBy
     });
   }
 
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      sortBySavedFilePath() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savedFilePath', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      sortBySavedFilePathDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savedFilePath', Sort.desc);
+    });
+  }
+
   QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy> sortBySourceUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceUrl', Sort.asc);
@@ -3197,6 +3382,20 @@ extension DownloadModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      thenBySavedFilePath() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savedFilePath', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy>
+      thenBySavedFilePathDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savedFilePath', Sort.desc);
+    });
+  }
+
   QueryBuilder<DownloadModel, DownloadModel, QAfterSortBy> thenBySourceUrl() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceUrl', Sort.asc);
@@ -3398,6 +3597,14 @@ extension DownloadModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<DownloadModel, DownloadModel, QDistinct> distinctBySavedFilePath(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'savedFilePath',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<DownloadModel, DownloadModel, QDistinct> distinctBySourceUrl(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3545,6 +3752,13 @@ extension DownloadModelQueryProperty
       saveDestinationProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'saveDestination');
+    });
+  }
+
+  QueryBuilder<DownloadModel, String?, QQueryOperations>
+      savedFilePathProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'savedFilePath');
     });
   }
 

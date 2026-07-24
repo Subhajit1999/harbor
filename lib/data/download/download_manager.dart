@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/services/settings_service.dart';
 import '../../core/utils/app_logger.dart';
+import '../../core/utils/error_messages.dart';
 import '../../domain/entities/download_entity.dart';
 import '../../domain/repositories/download_repository.dart';
 import 'mux_service.dart';
@@ -141,6 +142,16 @@ class DownloadManager {
     return dir;
   }
 
+  /// Raw download + mux/extraction intermediates land here, not in the
+  /// permanent library dir — a killed-mid-download or failed-mux attempt
+  /// then leaves no partial/corrupt file sitting in `_downloadDir()`.
+  Future<Directory> _stagingDir(String id) async {
+    final tmp = await getTemporaryDirectory();
+    final dir = Directory(p.join(tmp.path, 'harbor_dl_$id'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
   Future<void> _runDownload(String id) async {
     var entity = await _repository.getById(id);
     if (entity == null) {
@@ -160,9 +171,9 @@ class DownloadManager {
     try {
       await _repository.save(entity.copyWith(status: DownloadStatus.downloading));
 
-      final dir = await _downloadDir();
+      final stagingDir = await _stagingDir(id);
       final safeName = '${entity.id}.${entity.format}';
-      final videoPath = p.join(dir.path, safeName);
+      final videoPath = p.join(stagingDir.path, safeName);
 
       await _downloadFile(
         url: entity.streamUrl,
@@ -181,7 +192,7 @@ class DownloadManager {
       var finalPath = videoPath;
 
       if (entity.audioStreamUrl != null) {
-        final audioPath = p.join(dir.path, '${entity.id}_audio.m4a');
+        final audioPath = p.join(stagingDir.path, '${entity.id}_audio.m4a');
         await _downloadFile(
           url: entity.audioStreamUrl!,
           savePath: audioPath,
@@ -197,7 +208,7 @@ class DownloadManager {
         if (entity == null) return;
         await _repository.save(entity.copyWith(status: DownloadStatus.processing));
 
-        final muxedPath = p.join(dir.path, '${entity.id}_final.mp4');
+        final muxedPath = p.join(stagingDir.path, '${entity.id}_final.mp4');
         finalPath = await _muxService.mux(
           videoPath: videoPath,
           audioPath: audioPath,
@@ -215,13 +226,23 @@ class DownloadManager {
         // audio-only URL — `videoPath` is actually a full video file that
         // needs its audio track pulled out natively before it's a real
         // standalone audio file (see MuxService.extractAudio).
-        final extractedPath = p.join(dir.path, '${entity.id}_final.m4a');
+        final extractedPath = p.join(stagingDir.path, '${entity.id}_final.m4a');
         finalPath = await _muxService.extractAudio(
           sourcePath: videoPath,
           outputPath: extractedPath,
         );
         await _deleteQuietly(videoPath);
       }
+
+      // Last step: move the verified finished file out of the temp staging
+      // dir and into the permanent library dir. Only completed files ever
+      // land in `_downloadDir()` — a kill mid-download or a failed mux
+      // leaves nothing behind there.
+      final libraryDir = await _downloadDir();
+      final libraryPath = p.join(libraryDir.path, p.basename(finalPath));
+      await File(finalPath).rename(libraryPath);
+      finalPath = libraryPath;
+      await _cleanupStagingDir(id);
 
       entity = await _repository.getById(id);
       if (entity == null) return;
@@ -243,14 +264,27 @@ class DownloadManager {
         return;
       }
       AppLogger.e(_tag, '$id network error', e, st);
-      await _handleFailure(id, e.message ?? 'Network error');
+      await _handleFailure(id, e);
     } catch (e, st) {
       AppLogger.e(_tag, '$id failed', e, st);
-      await _handleFailure(id, e.toString());
+      await _handleFailure(id, e);
     } finally {
       _cancelTokens.remove(id);
       _active.remove(id);
       _tryStartNext();
+    }
+  }
+
+  /// Best-effort removal of the whole per-download temp staging dir
+  /// (intermediates should already be gone via `_deleteQuietly`, but this
+  /// also mops up leftover `.partN` chunk files from an interrupted run).
+  Future<void> _cleanupStagingDir(String id) async {
+    try {
+      final tmp = await getTemporaryDirectory();
+      final dir = Directory(p.join(tmp.path, 'harbor_dl_$id'));
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (e) {
+      AppLogger.w(_tag, 'failed to clean up staging dir for $id: $e');
     }
   }
 
@@ -275,13 +309,14 @@ class DownloadManager {
     }
   }
 
-  Future<void> _handleFailure(String id, String message) async {
+  Future<void> _handleFailure(String id, Object error) async {
     final entity = await _repository.getById(id);
     if (entity == null) return;
+    final message = friendlyMessage(error);
     if (entity.retryCount < AppConstants.maxRetryAttempts) {
       AppLogger.w(
         _tag,
-        '$id retrying (attempt ${entity.retryCount + 1}/${AppConstants.maxRetryAttempts}): $message',
+        '$id retrying (attempt ${entity.retryCount + 1}/${AppConstants.maxRetryAttempts}): $error',
       );
       await _repository.save(entity.copyWith(
         status: DownloadStatus.queued,

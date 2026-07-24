@@ -13,6 +13,7 @@ const _activeStatuses = {
   DownloadStatus.downloading,
   DownloadStatus.paused,
   DownloadStatus.processing,
+  DownloadStatus.saving,
 };
 
 class DownloadQueueScreen extends GetView<DownloadQueueController> {
