@@ -1,39 +1,49 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart';
 import '../constants/app_constants.dart';
+import '../utils/app_logger.dart';
+
+const _tag = 'MediaSaveService';
 
 /// Handles the two save destinations the product spec calls for: Photos
-/// (via the native photo library) and Files (via the app's own Documents
-/// directory, which iOS surfaces inside the Files app when
-/// `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` are set —
-/// see ios/Runner/Info.plist notes in the README).
+/// and Files (via the app's own Documents directory, which iOS surfaces
+/// inside the Files app when `UIFileSharingEnabled` +
+/// `LSSupportsOpeningDocumentsInPlace` are set — see ios/Runner/Info.plist
+/// notes in the README).
+///
+/// Photos save is a thin platform-channel call into
+/// `ios/Runner/PhotosSaveHandler.swift`, which talks to `PHPhotoLibrary`
+/// directly — used instead of a Flutter plugin so the permission request
+/// and any save failure return an exact, debuggable error instead of being
+/// swallowed inside a third-party wrapper.
 class MediaSaveService {
-  Future<bool> requestPhotosPermission() async {
-    final status = await Permission.photosAddOnly.request();
-    return status.isGranted || status.isLimited;
-  }
+  static const _channel = MethodChannel('harbor/photos');
 
   /// Saves the file at [sourcePath] into the Photos library. Returns true
-  /// on success.
+  /// on success, false on any failure (permission denied, native save
+  /// error) — deliberately non-fatal, since Harbor always keeps its own
+  /// Files copy regardless (see [saveToFiles]), so a Photos failure alone
+  /// shouldn't fail the whole download. Audio isn't a Photos-library asset
+  /// type at all — callers should route audio downloads to Files only.
   Future<bool> saveToPhotos({
     required String sourcePath,
     required MediaType type,
     required String title,
   }) async {
-    final granted = await requestPhotosPermission();
-    if (!granted) return false;
+    if (type == MediaType.audio) return false;
 
-    final AssetEntity? asset = type == MediaType.video
-        ? await PhotoManager.editor.saveVideo(File(sourcePath), title: title)
-        : await PhotoManager.editor.saveImage(
-            await File(sourcePath).readAsBytes(),
-            title: title,
-            filename: title,
-          );
-    return asset != null;
+    try {
+      final result = await _channel.invokeMethod<bool>('saveToPhotos', {
+        'path': sourcePath,
+        'isVideo': true,
+      });
+      return result ?? false;
+    } on PlatformException catch (e) {
+      AppLogger.w(_tag, 'saveToPhotos failed: ${e.code} ${e.message}');
+      return false;
+    }
   }
 
   /// Copies the file into Harbor's own Documents directory, under a

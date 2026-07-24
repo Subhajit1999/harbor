@@ -9,6 +9,7 @@ import UIKit
 class SceneDelegate: FlutterSceneDelegate {
   var shareChannelHandler: ShareChannelHandler?
   var muxHandler: MuxHandler?
+  var photosSaveHandler: PhotosSaveHandler?
 
   override func scene(
     _ scene: UIScene,
@@ -23,6 +24,7 @@ class SceneDelegate: FlutterSceneDelegate {
 
     shareChannelHandler = ShareChannelHandler(messenger: controller.binaryMessenger)
     muxHandler = MuxHandler(messenger: controller.binaryMessenger)
+    photosSaveHandler = PhotosSaveHandler(messenger: controller.binaryMessenger)
 
     // Cold start (app launched BY opening harbor://import) deliberately
     // does nothing here beyond bringing the app up — the shared value is

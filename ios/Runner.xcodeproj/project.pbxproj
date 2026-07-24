@@ -11,6 +11,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		3B4508E8313B404E4F33FC8A /* MuxHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF409688992210F44598762E /* MuxHandler.swift */; };
+		EFB295BAC3E3125800A462C0 /* PhotosSaveHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA44A2CC724A7CE4D673F56 /* PhotosSaveHandler.swift */; };
 		4AAA74162B49A127775814E1 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4E5F0589008C663A3A5ECB8B /* Pods_Runner.framework */; };
 		58B0A42B73CB9FA83CC16438 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C718C3D5EEC9328DECDA974B /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		72613B5A50CCF58BD049CEEB /* ShareChannelHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB01C016C29044706CEF1EED /* ShareChannelHandler.swift */; };
@@ -92,6 +93,7 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		BCDFAF2DAE4B1C093664CE91 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		BF409688992210F44598762E /* MuxHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuxHandler.swift; sourceTree = "<group>"; };
+		CFA44A2CC724A7CE4D673F56 /* PhotosSaveHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotosSaveHandler.swift; sourceTree = "<group>"; };
 		C718C3D5EEC9328DECDA974B /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3A679A1EAA2EA8348572DAE /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		D450E55F11306FEBF852C485 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				EB01C016C29044706CEF1EED /* ShareChannelHandler.swift */,
 				BF409688992210F44598762E /* MuxHandler.swift */,
+				CFA44A2CC724A7CE4D673F56 /* PhotosSaveHandler.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -283,7 +286,6 @@
 				CBA236148CCA047516B1274B /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				BB413348DEC5C83D34E02D24 /* [CP] Embed Pods Frameworks */,
-				69616993BD1DD7BBE3CD7F8A /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -380,23 +382,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
-		};
-		69616993BD1DD7BBE3CD7F8A /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
-			showEnvVarsInLog = 0;
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -502,6 +487,7 @@
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				72613B5A50CCF58BD049CEEB /* ShareChannelHandler.swift in Sources */,
 				3B4508E8313B404E4F33FC8A /* MuxHandler.swift in Sources */,
+				EFB295BAC3E3125800A462C0 /* PhotosSaveHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

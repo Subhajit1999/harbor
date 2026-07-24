@@ -30,10 +30,10 @@ dependencies:
   just_audio: ^0.9.40
   chewie: ^1.8.3
 
-  # Media save destinations
-  photo_manager: ^3.2.4
+  # Media save destinations — Photos save is a native MethodChannel
+  # (ios/Runner/PhotosSaveHandler.swift), not a plugin; see
+  # lib/core/services/media_save_service.dart.
   share_plus: ^9.0.0
-  permission_handler: ^11.3.1
   open_filex: ^4.5.0
 
   # Network state (Wi-Fi Only downloads setting)

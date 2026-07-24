@@ -63,7 +63,13 @@ class ImportScreen extends GetView<ImportController> {
               );
             }),
             const SizedBox(height: 28),
-            const SectionHeader(title: 'Recent Links'),
+            Obx(() => SectionHeader(
+                  title: 'Recent Links',
+                  trailingLabel: 'Clear All',
+                  onSeeAll: controller.recentLinks.isEmpty
+                      ? null
+                      : () => _confirmClearAll(context, controller),
+                )),
             Expanded(
               child: Obx(() {
                 if (controller.recentLinks.isEmpty) {
@@ -83,6 +89,7 @@ class ImportScreen extends GetView<ImportController> {
                         controller.linkController.text = link;
                         controller.analyze(link);
                       },
+                      onLongPress: () => _showLinkActions(context, controller, link),
                       child: Row(
                         children: [
                           const Icon(CupertinoIcons.clock, size: 18, color: AppColors.textSecondaryDark),
@@ -102,4 +109,57 @@ class ImportScreen extends GetView<ImportController> {
       ),
     );
   }
+}
+
+void _showLinkActions(BuildContext context, ImportController controller, String link) {
+  showCupertinoModalPopup<void>(
+    context: context,
+    builder: (ctx) => CupertinoActionSheet(
+      message: Text(link, maxLines: 2, overflow: TextOverflow.ellipsis),
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () {
+            Navigator.pop(ctx);
+            controller.linkController.text = link;
+            controller.analyze(link);
+          },
+          child: const Text('Re-import'),
+        ),
+        CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () {
+            Navigator.pop(ctx);
+            controller.removeRecentLink(link);
+          },
+          child: const Text('Delete'),
+        ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () => Navigator.pop(ctx),
+        child: const Text('Cancel'),
+      ),
+    ),
+  );
+}
+
+void _confirmClearAll(BuildContext context, ImportController controller) {
+  showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Clear all recent links?'),
+      content: const Text('This removes every link from your recent history.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Clear All', style: TextStyle(color: AppColors.error)),
+        ),
+      ],
+    ),
+  ).then((confirmed) {
+    if (confirmed == true) controller.clearRecentLinks();
+  });
 }

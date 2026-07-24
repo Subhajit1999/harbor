@@ -60,6 +60,16 @@ class ImportController extends GetxController {
 
   bool isSupported(String url) => _api.isSupported(url);
 
+  Future<void> removeRecentLink(String url) async {
+    await _settingsService.removeRecentLink(url);
+    recentLinks.value = _settingsService.recentLinks;
+  }
+
+  Future<void> clearRecentLinks() async {
+    await _settingsService.clearHistory();
+    recentLinks.value = _settingsService.recentLinks;
+  }
+
   Future<void> analyze([String? overrideUrl]) async {
     if (isAnalyzing.value) return;
     final url = (overrideUrl ?? linkController.text).trim();
@@ -99,16 +109,20 @@ class ImportController extends GetxController {
       analysisError.value = e.message;
     } on SocketException catch (e, st) {
       AppLogger.e(_tag, 'analyze("$url") via HarborApi: no internet', e, st);
-      analysisError.value = 'No internet connection. Check your network and try again.';
+      analysisError.value =
+          'No internet connection. Check your network and try again.';
     } on TimeoutException catch (e, st) {
       AppLogger.e(_tag, 'analyze("$url") via HarborApi: timed out', e, st);
-      analysisError.value = 'This is taking too long — the source may be slow to respond. Try again.';
+      analysisError.value =
+          'This is taking too long — the source may be slow to respond. Try again.';
     } catch (e, st) {
       // Not an ApiException/network error — a bug or something
       // genuinely unexpected. Keep it visible (not swallowed) but framed as
       // unexpected rather than showing a raw exception string.
-      AppLogger.e(_tag, 'analyze("$url") via HarborApi: unexpected error', e, st);
-      analysisError.value = 'Something unexpected went wrong analyzing this link. ($e)';
+      AppLogger.e(
+          _tag, 'analyze("$url") via HarborApi: unexpected error', e, st);
+      analysisError.value =
+          'Something unexpected went wrong analyzing this link. ($e)';
     } finally {
       isAnalyzing.value = false;
     }
@@ -147,7 +161,8 @@ class ImportController extends GetxController {
       await _downloadManager.enqueue(download);
       AppLogger.i(_tag, 'Enqueued download ${download.id} (${meta.title})');
     } catch (e, st) {
-      AppLogger.e(_tag, 'Failed to enqueue download for "${meta.title}"', e, st);
+      AppLogger.e(
+          _tag, 'Failed to enqueue download for "${meta.title}"', e, st);
       // Deliberately don't reset flow state or navigate away here — the
       // user is still on Analysis with the same variant selected, so they
       // can just try again instead of having to re-paste/re-analyze the
@@ -166,10 +181,10 @@ class ImportController extends GetxController {
     linkController.clear();
     metadata.value = null;
     selectedVariant.value = null;
-    
+
     Get.offAllNamed(AppRoutes.home);
     // Note: The download queue is accessible from Home, so dropping them at Home is sufficient.
-    
+
     Get.snackbar(
       'Added to Downloads',
       meta.title,

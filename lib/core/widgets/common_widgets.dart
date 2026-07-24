@@ -240,8 +240,14 @@ class ErrorBanner extends StatelessWidget {
 class SectionHeader extends StatelessWidget {
   final String title;
   final VoidCallback? onSeeAll;
+  final String trailingLabel;
 
-  const SectionHeader({super.key, required this.title, this.onSeeAll});
+  const SectionHeader({
+    super.key,
+    required this.title,
+    this.onSeeAll,
+    this.trailingLabel = 'See All',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +262,7 @@ class SectionHeader extends StatelessWidget {
           if (onSeeAll != null)
             TextButton(
               onPressed: onSeeAll,
-              child: const Text('See All', style: TextStyle(color: AppColors.accent)),
+              child: Text(trailingLabel, style: const TextStyle(color: AppColors.accent)),
             ),
         ],
       ),

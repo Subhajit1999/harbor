@@ -74,9 +74,16 @@ class GradientProgressBar extends StatelessWidget {
 class BouncyTap extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final bool haptic;
 
-  const BouncyTap({super.key, required this.child, this.onTap, this.haptic = true});
+  const BouncyTap({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.haptic = true,
+  });
 
   @override
   State<BouncyTap> createState() => _BouncyTapState();
@@ -106,6 +113,7 @@ class _BouncyTapState extends State<BouncyTap> with SingleTickerProviderStateMix
       onTapUp: widget.onTap == null ? null : _onUp,
       onTapCancel: widget.onTap == null ? null : () => _controller.reverse(),
       onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       behavior: HitTestBehavior.opaque,
       child: AnimatedBuilder(
         animation: _controller,

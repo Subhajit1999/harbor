@@ -50,27 +50,33 @@ class DownloadQueueScreen extends GetView<DownloadQueueController> {
                 child: const Icon(CupertinoIcons.delete, color: AppColors.error),
               ),
               confirmDismiss: (_) async {
-                if (!_activeStatuses.contains(d.status)) return true;
+                final isActive = _activeStatuses.contains(d.status);
                 return await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Cancel download?'),
-                        content: Text('"${d.mediaTitle}" is still in progress.'),
+                        title: const Text('Delete download?'),
+                        content: Text(
+                          isActive
+                              ? '"${d.mediaTitle}" is still in progress. This will stop the '
+                                  'download and delete it.'
+                              : 'This will delete "${d.mediaTitle}" from your downloads and '
+                                  'storage.',
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Keep downloading'),
+                            child: const Text('Cancel'),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Cancel download'),
+                            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
                           ),
                         ],
                       ),
                     ) ??
                     false;
               },
-              onDismissed: (_) => controller.cancel(d.id),
+              onDismissed: (_) => controller.delete(d.id),
               child: DownloadCard(
                 download: d,
                 onPause: () => controller.pause(d.id),

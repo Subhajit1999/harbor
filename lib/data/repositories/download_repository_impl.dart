@@ -54,6 +54,7 @@ class DownloadRepositoryImpl implements DownloadRepository {
   Stream<List<DownloadEntity>> watchAll() {
     return _db.downloadModels
         .where()
+        .sortByStartedAtDesc()
         .watch(fireImmediately: true)
         .map((models) => models.map((m) => m.toEntity()).toList());
   }

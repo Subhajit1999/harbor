@@ -68,6 +68,11 @@ class SettingsService {
     await _prefs.remove(_recentLinksKey);
   }
 
+  Future<void> removeRecentLink(String url) async {
+    final links = recentLinks.toList()..removeWhere((l) => l == url);
+    await _prefs.setStringList(_recentLinksKey, links);
+  }
+
   static const _playbackPositionPrefix = 'playbackPosition.';
 
   Duration? getPlaybackPosition(String mediaId) {

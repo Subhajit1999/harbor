@@ -12,6 +12,7 @@ class GlassCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double borderRadius;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   /// When true, renders a thin monochrome-sheen border instead of the
   /// plain hairline — reserved for the one or two "hero" cards per screen
@@ -25,6 +26,7 @@ class GlassCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.borderRadius = 24,
     this.onTap,
+    this.onLongPress,
     this.accented = false,
   });
 
@@ -60,7 +62,7 @@ class GlassCard extends StatelessWidget {
       );
     }
 
-    if (onTap == null) return content;
-    return BouncyTap(onTap: onTap, child: content);
+    if (onTap == null && onLongPress == null) return content;
+    return BouncyTap(onTap: onTap, onLongPress: onLongPress, child: content);
   }
 }

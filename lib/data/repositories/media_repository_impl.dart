@@ -100,6 +100,7 @@ class MediaRepositoryImpl implements MediaRepository {
   Stream<List<MediaEntity>> watchAll() {
     return _db.mediaModels
         .where()
+        .sortByCreatedAtDesc()
         .watch(fireImmediately: true)
         .map((models) => models.map((m) => m.toEntity()).toList());
   }

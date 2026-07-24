@@ -62,7 +62,11 @@ class DownloadManager {
   Future<void> enqueue(DownloadEntity download) async {
     AppLogger.i(_tag, 'enqueue ${download.id} "${download.mediaTitle}" (${download.format})');
     await _repository.save(download.copyWith(status: DownloadStatus.queued));
-    _queue.add(download.id);
+    // Guard against a double-fire (e.g. a double-tap on the confirm
+    // button) queueing the same id twice — two concurrent `_runDownload`
+    // calls for the same record race their status writes back and forth
+    // (downloading/completed flicker) since neither knows about the other.
+    _enqueueIdIfNeeded(download.id);
     _tryStartNext();
   }
 
@@ -80,7 +84,7 @@ class DownloadManager {
     final entity = await _repository.getById(id);
     if (entity == null) return;
     await _repository.save(entity.copyWith(status: DownloadStatus.queued));
-    if (!_queue.contains(id)) _queue.add(id);
+    _enqueueIdIfNeeded(id);
     _tryStartNext();
   }
 
@@ -102,7 +106,7 @@ class DownloadManager {
       retryCount: entity.retryCount + 1,
       clearErrorMessage: true,
     ));
-    if (!_queue.contains(id)) _queue.add(id);
+    _enqueueIdIfNeeded(id);
     _tryStartNext();
   }
 
@@ -116,9 +120,20 @@ class DownloadManager {
       // `queued`/`downloading` were interrupted by the app being killed.
       if (entity.status == DownloadStatus.paused) continue;
       await _repository.save(entity.copyWith(status: DownloadStatus.queued));
-      if (!_queue.contains(entity.id)) _queue.add(entity.id);
+      _enqueueIdIfNeeded(entity.id);
     }
     _tryStartNext();
+  }
+
+  /// Adds [id] to the dispatch queue unless it's already queued or already
+  /// running — the single choke point every enqueue/resume/retry path goes
+  /// through so an id can never end up in `_queue` twice (which would let
+  /// `_tryStartNext` dispatch two concurrent `_runDownload` calls for the
+  /// same record, racing their status writes).
+  void _enqueueIdIfNeeded(String id) {
+    if (!_queue.contains(id) && !_active.contains(id)) {
+      _queue.add(id);
+    }
   }
 
   Future<void> _tryStartNext() async {

@@ -28,9 +28,15 @@ class DownloadCard extends StatelessWidget {
   bool get _isIndeterminate =>
       download.status == DownloadStatus.processing || download.status == DownloadStatus.saving;
 
+  bool get _isCompleted =>
+      download.status == DownloadStatus.completed && download.savedFilePath != null;
+
   @override
   Widget build(BuildContext context) {
     return GlassCard(
+      borderRadius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      onTap: _isCompleted ? () => OpenFilex.open(download.savedFilePath!) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -89,6 +95,9 @@ class DownloadCard extends StatelessWidget {
                         fontSize: 12,
                         color: download.status == DownloadStatus.failed
                             ? AppColors.error
+                            : (download.status == DownloadStatus.completed &&
+                                    download.errorMessage != null)
+                                ? AppColors.warning
                             : AppColors.textSecondaryDark,
                       ),
                     ),
@@ -99,8 +108,10 @@ class DownloadCard extends StatelessWidget {
               _actionButton(),
             ],
           ),
-          if (download.status == DownloadStatus.completed && download.savedFilePath != null) ...[
+          if (_isCompleted) ...[
             const SizedBox(height: 10),
+            const Divider(height: 1, color: Colors.white12),
+            const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
@@ -150,6 +161,11 @@ class DownloadCard extends StatelessWidget {
         final totalStr = d.totalBytes > 0 ? Formatters.bytes(d.totalBytes) : 'Unknown Size';
         return 'Paused · ${Formatters.bytes(d.downloadedBytes)} / $totalStr';
       case DownloadStatus.completed:
+        // errorMessage can be set here without flipping status away from
+        // `completed` — the download itself succeeded, only the library
+        // save step (Photos/Files/thumbnail) failed. See
+        // DownloadQueueController._indexCompletedDownload.
+        if (d.errorMessage != null) return d.errorMessage!;
         return 'Completed · ${Formatters.bytes(d.totalBytes)}';
       case DownloadStatus.failed:
         return d.errorMessage ?? 'Something went wrong. Try again.';
@@ -168,15 +184,27 @@ class DownloadCard extends StatelessWidget {
     switch (download.status) {
       case DownloadStatus.downloading:
       case DownloadStatus.queued:
-        return IconButton(icon: const Icon(CupertinoIcons.pause_circle), onPressed: onPause);
+        return IconButton(
+          icon: const Icon(CupertinoIcons.pause_circle, color: AppColors.accent),
+          onPressed: onPause,
+        );
       case DownloadStatus.paused:
-        return IconButton(icon: const Icon(CupertinoIcons.play_circle), onPressed: onResume);
+        return IconButton(
+          icon: const Icon(CupertinoIcons.play_circle, color: AppColors.warning),
+          onPressed: onResume,
+        );
       case DownloadStatus.failed:
-        return IconButton(icon: const Icon(CupertinoIcons.arrow_clockwise), onPressed: onRetry);
+        return IconButton(
+          icon: const Icon(CupertinoIcons.arrow_clockwise, color: AppColors.error),
+          onPressed: onRetry,
+        );
       case DownloadStatus.completed:
         return const Icon(CupertinoIcons.checkmark_circle_fill, color: AppColors.success);
       case DownloadStatus.canceled:
-        return IconButton(icon: const Icon(CupertinoIcons.arrow_clockwise), onPressed: onRetry);
+        return IconButton(
+          icon: const Icon(CupertinoIcons.arrow_clockwise, color: AppColors.textSecondaryDark),
+          onPressed: onRetry,
+        );
       case DownloadStatus.processing:
       case DownloadStatus.saving:
         return const SizedBox(
